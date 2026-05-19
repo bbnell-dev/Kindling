@@ -2615,18 +2615,6 @@ body[data-weather="snow"] .empty-garden-window .weather-layer {
   right: 16%;
 }
 
-/* Photo-backed garden direction: real cozy window asset. */
-.window-scape.empty-garden-window {
-  min-height: 32rem;
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(42, 31, 22, 0.1)),
-    url("assets/backgrounds/cozy-window-unsplash.jpg") center / cover no-repeat;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.26),
-    0 1.4rem 3.2rem rgba(63, 46, 32, 0.18);
-}
-
 .empty-garden-window .window-sky {
   min-height: 32rem;
   background: transparent;
