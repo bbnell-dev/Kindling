@@ -1075,76 +1075,6 @@ function routeToHash() {
   }
 }
 
-function applyWeather(value, source = "manual") {
-  document.body.dataset.weather = value;
-  if (weatherSelect) {
-    weatherSelect.value = value;
-  }
-  const preferences = {
-    ...readPreferences(),
-    weather: value,
-    weatherSource: source
-  };
-  writePreferences(preferences);
-}
-
-function weatherFromCode(code) {
-  if ([0, 1].includes(code)) {
-    return "sunny";
-  }
-  if ([2, 3].includes(code)) {
-    return "cloudy";
-  }
-  if ([45, 48].includes(code)) {
-    return "fog";
-  }
-  if ([71, 73, 75, 77, 85, 86].includes(code)) {
-    return "snow";
-  }
-  if ([95, 96, 99].includes(code)) {
-    return "storm";
-  }
-  return "rain";
-}
-
-function useLiveWeather() {
-  if (!navigator.geolocation) {
-    if (gardenNote) {
-      gardenNote.textContent = "Live weather is not available in this browser, but manual window weather still works.";
-    }
-    return;
-  }
-
-  if (liveWeatherButton) {
-    liveWeatherButton.textContent = "Checking weather...";
-  }
-  navigator.geolocation.getCurrentPosition(async (position) => {
-    try {
-      const { latitude, longitude } = position.coords;
-      const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=weather_code`);
-      const data = await response.json();
-      applyWeather(weatherFromCode(data.current.weather_code), "live");
-      if (liveWeatherButton) {
-        liveWeatherButton.textContent = "Live weather on";
-      }
-    } catch {
-      if (gardenNote) {
-        gardenNote.textContent = "Live weather could not load. Manual window weather still works.";
-      }
-      if (liveWeatherButton) {
-        liveWeatherButton.textContent = "Use live weather";
-      }
-    }
-  }, () => {
-    if (gardenNote) {
-      gardenNote.textContent = "Location was not shared. Manual window weather still works.";
-    }
-    if (liveWeatherButton) {
-      liveWeatherButton.textContent = "Use live weather";
-    }
-  });
-}
-
 painInput.addEventListener("input", updateRanges);
 capacityInput.addEventListener("input", updateRanges);
 document.querySelector("#new-prompt").addEventListener("click", rotatePrompt);
@@ -1229,7 +1159,6 @@ entriesList.addEventListener("click", (event) => {
 
   loadEntryForEditing(button.dataset.editEntry);
 });
-plantSelect?.addEventListener("change", () => updatePreference("plant", plantSelect.value));
 profileNameInput.addEventListener("input", () => {
   updatePreference("profileName", profileNameInput.value.trim() || "Kindling");
   syncActiveProfile();
@@ -1242,76 +1171,9 @@ profileSelect.addEventListener("change", () => switchProfile(profileSelect.value
 newProfileButton.addEventListener("click", createNewProfile);
 drinkSelect.addEventListener("change", () => updatePreference("drink", drinkSelect.value));
 themeSelect.addEventListener("change", () => updatePreference("theme", themeSelect.value));
-weatherSelect?.addEventListener("change", () => applyWeather(weatherSelect.value));
-liveWeatherButton?.addEventListener("click", useLiveWeather);
-gardenGrid?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-plant-choice]");
-  if (!button) {
-    return;
-  }
-
-  setFavoritePlant(button.dataset.plantChoice);
-});
-ownedGrid?.addEventListener("click", (event) => {
-  const item = event.target.closest("[data-arrange-plant]");
-  if (!item) {
-    return;
-  }
-
-  selectArrangePlant(item.dataset.arrangePlant);
-});
-ownedGrid?.addEventListener("pointerdown", startPointerPlantDrag);
-window.addEventListener("pointermove", (event) => movePointerGhost(event.clientX, event.clientY));
-window.addEventListener("pointerup", finishPointerPlantDrag);
-ownedGrid?.addEventListener("dragstart", (event) => {
-  const item = event.target.closest("[data-arrange-plant]");
-  if (!item) {
-    return;
-  }
-
-  draggedPlant = item.dataset.arrangePlant;
-  event.dataTransfer.setData("text/plain", draggedPlant);
-});
-gardenArrange?.addEventListener("click", (event) => {
-  const slot = event.target.closest("[data-slot]");
-  if (!slot) {
-    return;
-  }
-
-  placeSelectedPlant(Number(slot.dataset.slot));
-});
-gardenArrange?.addEventListener("dblclick", (event) => {
-  const slot = event.target.closest("[data-slot]");
-  if (!slot) {
-    return;
-  }
-
-  namePlantInSlot(Number(slot.dataset.slot));
-});
-gardenArrange?.addEventListener("dragover", (event) => {
-  event.preventDefault();
-});
-gardenArrange?.addEventListener("drop", (event) => {
-  event.preventDefault();
-  const slot = event.target.closest("[data-slot]");
-  const plantId = event.dataTransfer.getData("text/plain") || draggedPlant;
-  if (!slot || !plantId) {
-    return;
-  }
-
-  selectedArrangePlant = plantId;
-  placeSelectedPlant(Number(slot.dataset.slot));
-});
-windowSill?.addEventListener("dragover", (event) => {
-  event.preventDefault();
-});
-windowSill?.addEventListener("drop", (event) => {
-  event.preventDefault();
-  const plantId = event.dataTransfer.getData("text/plain") || draggedPlant;
-  if (plantId) {
-    placePlantInNextOpenSlot(plantId);
-  }
-});
+modeSelect.addEventListener("change", () => updatePreference("mode", modeSelect.value));
+const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+colorSchemeQuery.addEventListener?.("change", applyPreferences);
 window.addEventListener("hashchange", routeToHash);
 
 document.querySelector("#clear-sample").addEventListener("click", () => {

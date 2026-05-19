@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   --ink: #2c3136;
   --muted: #6d7479;
   --paper: #fffdf8;
@@ -105,6 +105,26 @@ body[data-theme="lavender"] {
     linear-gradient(135deg, #eddcff 0%, #e7f9e5 50%, #ffe6cf 100%);
 }
 
+body[data-mode="dark"] {
+  --ink: #f7f0e8;
+  --muted: #cabfb5;
+  --paper: #211f24;
+  --surface: #29272d;
+  --line: rgba(255, 244, 230, 0.18);
+  --sage: #9fb89e;
+  --sage-dark: #c7ddc3;
+  --coral: #f0a58f;
+  --gold: #f1ca73;
+  --blue: #92bbcf;
+  --plum: #d8c5df;
+  --cup: #f7eadf;
+  --shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(117, 98, 125, 0.5), transparent 26rem),
+    radial-gradient(circle at 88% 12%, rgba(85, 113, 93, 0.42), transparent 24rem),
+    linear-gradient(135deg, #151922 0%, #1d2a28 52%, #231c28 100%);
+}
+
 button,
 input,
 textarea {
@@ -196,6 +216,17 @@ button {
   color: var(--sage-dark);
 }
 
+body[data-mode="dark"] .rail {
+  background: rgba(30, 31, 35, 0.78);
+  border-right-color: rgba(255, 244, 230, 0.14);
+}
+
+body[data-mode="dark"] .brand-mark,
+body[data-mode="dark"] .nav-list a:hover,
+body[data-mode="dark"] .nav-list a.active {
+  background: rgba(199, 221, 195, 0.13);
+}
+
 .mini-card,
 .entry-card,
 .insight-panel,
@@ -209,6 +240,19 @@ button {
   border-radius: 0.75rem;
   background: rgba(255, 255, 255, 0.76);
   box-shadow: var(--shadow);
+}
+
+body[data-mode="dark"] .mini-card,
+body[data-mode="dark"] .entry-card,
+body[data-mode="dark"] .insight-panel,
+body[data-mode="dark"] .connections-panel,
+body[data-mode="dark"] .customize-panel,
+body[data-mode="dark"] .garden-panel,
+body[data-mode="dark"] .care-panel,
+body[data-mode="dark"] .entries-section,
+body[data-mode="dark"] .missed-panel,
+body[data-mode="dark"] .hero-panel {
+  background: rgba(35, 36, 42, 0.78);
 }
 
 .mini-card {
@@ -658,7 +702,7 @@ body[data-plant-stage="blooming"] .plant::after {
 .field span,
 .range-field span,
 .chip-field legend {
-  color: #42484d;
+  color: var(--ink);
   font-weight: 700;
   font-size: 0.9rem;
 }
@@ -687,6 +731,12 @@ select {
   border-radius: 0.75rem;
   color: var(--ink);
   background: var(--paper);
+}
+
+body[data-mode="dark"] input,
+body[data-mode="dark"] textarea,
+body[data-mode="dark"] select {
+  background: rgba(20, 20, 24, 0.72);
 }
 
 input[type="date"],
