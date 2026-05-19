@@ -104,7 +104,16 @@ function slugifyProfileName(name) {
 function readProfiles() {
   try {
     const profiles = JSON.parse(localStorage.getItem(profilesKey)) || [];
-    return profiles.length ? profiles : [{ id: "default", name: "Kindling", avatar: "cat" }];
+    const safeProfiles = Array.isArray(profiles)
+      ? profiles
+        .filter((profile) => profile && typeof profile === "object")
+        .map((profile, index) => ({
+          id: String(profile.id || slugifyProfileName(profile.name || `profile-${index + 1}`)),
+          name: String(profile.name || "Kindling"),
+          avatar: String(profile.avatar || "cat")
+        }))
+      : [];
+    return safeProfiles.length ? safeProfiles : [{ id: "default", name: "Kindling", avatar: "cat" }];
   } catch {
     return [{ id: "default", name: "Kindling", avatar: "cat" }];
   }
@@ -115,7 +124,9 @@ function writeProfiles(profiles) {
 }
 
 function getActiveProfileId() {
-  return localStorage.getItem(activeProfileKey) || readProfiles()[0].id;
+  const profiles = readProfiles();
+  const activeId = localStorage.getItem(activeProfileKey);
+  return profiles.some((profile) => profile.id === activeId) ? activeId : profiles[0].id;
 }
 
 function setActiveProfileId(profileId) {
@@ -172,7 +183,8 @@ function writeEntries(entries) {
 
 function readCustomLocations() {
   try {
-    return JSON.parse(localStorage.getItem(customLocationsKey)) || [];
+    const locations = JSON.parse(localStorage.getItem(customLocationsKey)) || [];
+    return Array.isArray(locations) ? locations.map(String).filter(Boolean) : [];
   } catch {
     return [];
   }
@@ -184,7 +196,8 @@ function writeCustomLocations(locations) {
 
 function readHiddenLocations() {
   try {
-    return JSON.parse(localStorage.getItem(hiddenLocationsKey)) || [];
+    const locations = JSON.parse(localStorage.getItem(hiddenLocationsKey)) || [];
+    return Array.isArray(locations) ? locations.map(String).filter(Boolean) : [];
   } catch {
     return [];
   }
@@ -196,7 +209,8 @@ function writeHiddenLocations(locations) {
 
 function readCustomImpacts(key) {
   try {
-    return JSON.parse(localStorage.getItem(key)) || [];
+    const impacts = JSON.parse(localStorage.getItem(key)) || [];
+    return Array.isArray(impacts) ? impacts.map(String).filter(Boolean) : [];
   } catch {
     return [];
   }
@@ -206,17 +220,33 @@ function writeCustomImpacts(key, impacts) {
   localStorage.setItem(key, JSON.stringify(impacts));
 }
 
+function safeStringArray(value) {
+  return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+}
+
+function safeRenameMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([, label]) => typeof label === "string")
+      .map(([original, label]) => [String(original), label])
+  );
+}
+
 function readImpactSettings() {
   try {
     const settings = JSON.parse(localStorage.getItem(impactSettingsKey)) || {};
     return {
       helped: {
-        hidden: settings.helped?.hidden || [],
-        renames: settings.helped?.renames || {}
+        hidden: safeStringArray(settings.helped?.hidden),
+        renames: safeRenameMap(settings.helped?.renames)
       },
       worsened: {
-        hidden: settings.worsened?.hidden || [],
-        renames: settings.worsened?.renames || {}
+        hidden: safeStringArray(settings.worsened?.hidden),
+        renames: safeRenameMap(settings.worsened?.renames)
       }
     };
   } catch {
@@ -233,7 +263,8 @@ function writeImpactSettings(settings) {
 
 function readPreferences() {
   try {
-    return JSON.parse(localStorage.getItem(profileStorageKey(preferencesKey))) || {};
+    const preferences = JSON.parse(localStorage.getItem(profileStorageKey(preferencesKey))) || {};
+    return preferences && typeof preferences === "object" && !Array.isArray(preferences) ? preferences : {};
   } catch {
     return {};
   }
@@ -346,6 +377,10 @@ function resetLocationChips() {
 }
 
 function renderPainDetailFields() {
+  if (!painDetailList) {
+    return;
+  }
+
   const selected = selectedLocations();
   painDetailList.innerHTML = selected.map((location) => `
     <label class="field pain-detail-field">
@@ -357,6 +392,10 @@ function renderPainDetailFields() {
 
 function renderCustomLocations() {
   const locationChips = document.querySelector("#location-chips");
+  if (!locationChips) {
+    return;
+  }
+
   const selected = new Set(selectedLocations().map((location) => location.toLowerCase()));
   const hidden = new Set(readHiddenLocations().map((location) => location.toLowerCase()));
   const locations = [...defaultLocations, ...readCustomLocations()]
@@ -377,13 +416,21 @@ function renderCustomLocations() {
 
 function setFocusAreasEditing(isEditing) {
   focusAreasEditing = isEditing;
-  editLocationsButton.textContent = isEditing ? "Done" : "Edit";
-  focusAreaEditor.hidden = !isEditing;
+  if (editLocationsButton) {
+    editLocationsButton.textContent = isEditing ? "Done" : "Edit";
+  }
+  if (focusAreaEditor) {
+    focusAreaEditor.hidden = !isEditing;
+  }
   renderCustomLocations();
   renderPainDetailFields();
 }
 
 function renderProfiles() {
+  if (!profileSelect) {
+    return;
+  }
+
   const profiles = readProfiles();
   const activeId = getActiveProfileId();
   profileSelect.innerHTML = profiles.map((profile) => `
@@ -392,8 +439,8 @@ function renderProfiles() {
 }
 
 function saveCurrentProfile() {
-  const name = profileNameInput.value.trim() || "Kindling";
-  const avatar = avatarSelect.value;
+  const name = profileNameInput?.value.trim() || "Kindling";
+  const avatar = avatarSelect?.value || "cat";
   const profiles = readProfiles();
   const activeId = getActiveProfileId();
   const existingIndex = profiles.findIndex((profile) => profile.id === activeId);
@@ -416,8 +463,8 @@ function saveCurrentProfile() {
 }
 
 function syncActiveProfile() {
-  const name = profileNameInput.value.trim() || "Kindling";
-  const avatar = avatarSelect.value;
+  const name = profileNameInput?.value.trim() || "Kindling";
+  const avatar = avatarSelect?.value || "cat";
   const profiles = readProfiles();
   const activeId = getActiveProfileId();
   const existingIndex = profiles.findIndex((profile) => profile.id === activeId);
@@ -455,16 +502,16 @@ function createNewProfile() {
   profiles.push({
     id,
     name,
-    avatar: avatarSelect.value || "cat"
+    avatar: avatarSelect?.value || "cat"
   });
   writeProfiles(profiles);
   setActiveProfileId(id);
   writePreferences({
     ...readPreferences(),
     profileName: name,
-    avatar: avatarSelect.value || "cat",
-    drink: drinkSelect.value || "tea",
-    theme: themeSelect.value || "meadow",
+    avatar: avatarSelect?.value || "cat",
+    drink: drinkSelect?.value || "tea",
+    theme: themeSelect?.value || "meadow",
     mode: selectedDisplayMode()
   });
   renderProfiles();
@@ -489,6 +536,10 @@ function switchProfile(profileId) {
 }
 
 function addCustomLocation() {
+  if (!customLocationInput) {
+    return;
+  }
+
   const location = customLocationInput.value.trim();
   if (!location) {
     return;
@@ -607,6 +658,10 @@ function impactSuggestionsFromEntries(key) {
 }
 
 function renderImpactChipSet(container, impacts, targetInputId, emptyText) {
+  if (!container) {
+    return;
+  }
+
   const settings = readImpactSettings();
   const targetSettings = settings[targetInputId] || { hidden: [], renames: {} };
   const hidden = new Set(targetSettings.hidden.map((impact) => impact.toLowerCase()));
@@ -665,6 +720,10 @@ function editImpactSuggestion(targetInputId, originalImpact) {
 }
 
 function addCustomImpact(input, storageKey, targetInputId) {
+  if (!input) {
+    return;
+  }
+
   const impact = input.value.trim();
   if (!impact) {
     return;
@@ -689,6 +748,10 @@ function addCustomImpact(input, storageKey, targetInputId) {
 
 function addImpactsFromEntryInput(targetInputId, storageKey) {
   const input = document.querySelector(`#${targetInputId}`);
+  if (!input) {
+    return;
+  }
+
   const impacts = splitTags(input.value);
   if (!impacts.length) {
     input.focus();
@@ -714,6 +777,10 @@ function addImpactsFromEntryInput(targetInputId, storageKey) {
 }
 
 function appendImpactToInput(input, impact) {
+  if (!input) {
+    return;
+  }
+
   const current = splitTags(input.value);
   if (!current.includes(impact.toLowerCase())) {
     current.push(impact);
@@ -805,24 +872,33 @@ function formatDate(value) {
 }
 
 function updateRanges() {
+  if (!painOutput || !painInput || !capacityOutput || !capacityInput) {
+    return;
+  }
+
   painOutput.value = painInput.value;
   capacityOutput.value = capacityInput.value;
 }
 
 function renderEntries() {
   const entries = readEntries().sort((a, b) => b.createdAt - a.createdAt);
-  entryCount.textContent = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
+  if (entryCount) {
+    entryCount.textContent = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
+  }
   renderImpactOptions();
   updateEntrySummary(entries);
   renderMissedPanel(entries);
 
   if (!entries.length) {
-    entriesList.innerHTML = '<div class="empty-state">No entries yet. Start with one tiny note.</div>';
+    if (entriesList) {
+      entriesList.innerHTML = '<div class="empty-state">No entries yet. Start with one tiny note.</div>';
+    }
     renderPatterns(entries);
     return;
   }
 
-  entriesList.innerHTML = entries.map((entry) => {
+  if (entriesList) {
+    entriesList.innerHTML = entries.map((entry) => {
     const locations = entry.locations.length
       ? `<div class="tag-row">${entry.locations.map((location) => `<span class="tag">${escapeHtml(location)}</span>`).join("")}</div>`
       : "";
@@ -860,7 +936,8 @@ function renderEntries() {
         ${entry.type === "missed" ? "" : `<button class="mini-button edit-entry-button" type="button" data-edit-entry="${entry.id}">Edit entry</button>`}
       </article>
     `;
-  }).join("");
+    }).join("");
+  }
 
   renderPatterns(entries);
   renderConnections(entries);
@@ -869,11 +946,11 @@ function renderEntries() {
 function renderPatterns(entries) {
   const recent = entries.filter((entry) => entry.type !== "missed").slice(0, 7);
   if (!recent.length) {
-    avgPain.textContent = "-";
-    avgCapacity.textContent = "-";
-    painBar.style.width = "0%";
-    capacityBar.style.width = "0%";
-    patternNote.textContent = "Add an entry to start seeing gentle patterns.";
+    if (avgPain) avgPain.textContent = "-";
+    if (avgCapacity) avgCapacity.textContent = "-";
+    if (painBar) painBar.style.width = "0%";
+    if (capacityBar) capacityBar.style.width = "0%";
+    if (patternNote) patternNote.textContent = "Add an entry to start seeing gentle patterns.";
     renderTrendChart([]);
     renderConnections(entries);
     return;
@@ -881,11 +958,11 @@ function renderPatterns(entries) {
 
   const painAverage = average(recent.map((entry) => Number(entry.pain)));
   const capacityAverage = average(recent.map((entry) => Number(entry.capacity)));
-  avgPain.textContent = painAverage.toFixed(1);
-  avgCapacity.textContent = capacityAverage.toFixed(1);
-  painBar.style.width = `${painAverage * 10}%`;
-  capacityBar.style.width = `${capacityAverage * 10}%`;
-  patternNote.textContent = makePatternNote(painAverage, capacityAverage);
+  if (avgPain) avgPain.textContent = painAverage.toFixed(1);
+  if (avgCapacity) avgCapacity.textContent = capacityAverage.toFixed(1);
+  if (painBar) painBar.style.width = `${painAverage * 10}%`;
+  if (capacityBar) capacityBar.style.width = `${capacityAverage * 10}%`;
+  if (patternNote) patternNote.textContent = makePatternNote(painAverage, capacityAverage);
   renderTrendChart(entries);
 }
 
@@ -962,9 +1039,9 @@ function renderConnections(entries) {
   const bodyEntries = entries.filter((entry) => entry.type !== "missed" && Number.isFinite(Number(entry.pain)));
 
   if (bodyEntries.length < 2) {
-    connectionSummary.textContent = "Add at least two body notes to compare what helped and what spent energy.";
-    positiveConnections.innerHTML = "";
-    negativeConnections.innerHTML = "";
+    if (connectionSummary) connectionSummary.textContent = "Add at least two body notes to compare what helped and what spent energy.";
+    if (positiveConnections) positiveConnections.innerHTML = "";
+    if (negativeConnections) negativeConnections.innerHTML = "";
     return;
   }
 
@@ -974,15 +1051,17 @@ function renderConnections(entries) {
   const negative = collectImpactStats(bodyEntries, "worsened", baselinePain, baselineCapacity, "negative");
 
   if (!positive.length && !negative.length) {
-    connectionSummary.textContent = "Add positive and negative impacts to entries to start drawing connections.";
-    positiveConnections.innerHTML = "";
-    negativeConnections.innerHTML = "";
+    if (connectionSummary) connectionSummary.textContent = "Add positive and negative impacts to entries to start drawing connections.";
+    if (positiveConnections) positiveConnections.innerHTML = "";
+    if (negativeConnections) negativeConnections.innerHTML = "";
     return;
   }
 
-  connectionSummary.textContent = `Compared with your baseline of ${baselinePain.toFixed(1)} pain and ${baselineCapacity.toFixed(1)} energy. These are clues, not conclusions.`;
-  positiveConnections.innerHTML = renderConnectionGroup(positive, "positive");
-  negativeConnections.innerHTML = renderConnectionGroup(negative, "negative");
+  if (connectionSummary) {
+    connectionSummary.textContent = `Compared with your baseline of ${baselinePain.toFixed(1)} pain and ${baselineCapacity.toFixed(1)} energy. These are clues, not conclusions.`;
+  }
+  if (positiveConnections) positiveConnections.innerHTML = renderConnectionGroup(positive, "positive");
+  if (negativeConnections) negativeConnections.innerHTML = renderConnectionGroup(negative, "negative");
 }
 
 function collectImpactStats(entries, key, baselinePain, baselineCapacity, kind) {
@@ -1077,6 +1156,10 @@ function makePatternNote(painAverage, capacityAverage) {
 }
 
 function renderMissedPanel(entries) {
+  if (!missedPanel || !missedTitle || !missedCopy) {
+    return;
+  }
+
   const todayKey = new Date().toISOString().slice(0, 10);
   const dismissedDate = localStorage.getItem(missedDismissedKey);
   const datedEntries = entries
@@ -1125,6 +1208,10 @@ function escapeHtml(value) {
 }
 
 function rotatePrompt() {
+  if (!promptText) {
+    return;
+  }
+
   const current = promptText.textContent;
   const available = prompts.filter((prompt) => prompt !== current);
   promptText.textContent = available[Math.floor(Math.random() * available.length)];
@@ -1157,33 +1244,39 @@ function applyPreferences() {
       ? "dark"
       : "light";
 
-  document.body.dataset.drink = preferences.drink;
-  document.body.dataset.theme = preferences.theme;
+  const drink = ["tea", "coffee", "cocoa"].includes(preferences.drink) ? preferences.drink : "tea";
+  const theme = ["meadow", "rose", "dusk", "morning", "rain", "lavender"].includes(preferences.theme) ? preferences.theme : "meadow";
+  const avatar = ["cat", "rabbit", "fox", "frog", "bear"].includes(preferences.avatar) ? preferences.avatar : "cat";
+
+  document.body.dataset.drink = drink;
+  document.body.dataset.theme = theme;
   document.body.dataset.mode = resolvedMode;
   document.body.dataset.modeChoice = mode;
-  document.body.dataset.avatar = preferences.avatar;
-  brandName.textContent = preferences.profileName || "Kindling";
-  brandSubtitle.textContent = `${preferences.avatar} profile`;
-  avatarImage.src = avatarSvgDataUrl(preferences.avatar);
-  profileNameInput.value = preferences.profileName || "";
-  avatarSelect.value = preferences.avatar;
-  drinkSelect.value = preferences.drink;
-  themeSelect.value = preferences.theme;
+  document.body.dataset.avatar = avatar;
+  if (brandName) brandName.textContent = preferences.profileName || "Kindling";
+  if (brandSubtitle) brandSubtitle.textContent = `${avatar} profile`;
+  if (avatarImage) avatarImage.src = avatarSvgDataUrl(avatar);
+  if (profileNameInput) profileNameInput.value = preferences.profileName || "";
+  if (avatarSelect) avatarSelect.value = avatar;
+  if (drinkSelect) drinkSelect.value = drink;
+  if (themeSelect) themeSelect.value = theme;
   if (modeSelect) {
     modeSelect.value = mode;
   }
 
-  const drinkName = preferences.drink === "cocoa" ? "cocoa" : preferences.drink;
-  heroDescription.textContent = `Track pain, energy, context, and tiny supports with a warm cup of ${drinkName}.`;
+  const drinkName = drink === "cocoa" ? "cocoa" : drink;
+  if (heroDescription) {
+    heroDescription.textContent = `Track pain, energy, context, and tiny supports with a warm cup of ${drinkName}.`;
+  }
 }
 
 function updatePreference(key, value) {
   const preferences = {
     ...readPreferences(),
-    profileName: profileNameInput.value.trim() || "Kindling",
-    avatar: avatarSelect.value,
-    drink: drinkSelect.value,
-    theme: themeSelect.value,
+    profileName: profileNameInput?.value.trim() || "Kindling",
+    avatar: avatarSelect?.value || "cat",
+    drink: drinkSelect?.value || "tea",
+    theme: themeSelect?.value || "meadow",
     mode: selectedDisplayMode(),
     [key]: value
   };
@@ -1419,22 +1512,29 @@ function showStartupError(error) {
   if (!workspace) {
     return;
   }
+  workspace.querySelector(".startup-error")?.remove();
+  const message = escapeHtml(error?.message || String(error || "Unknown loading error"));
   workspace.insertAdjacentHTML("afterbegin", `
     <section class="startup-error" role="alert">
       <strong>Kindling had trouble loading.</strong>
-      <p>Try exporting a backup if the controls are visible, then clear local browser data for this site and import the backup again.</p>
+      <p>The app kept the page visible so you can still use backups. Technical note: ${message}</p>
     </section>
   `);
 }
 
-try {
-  updateRanges();
-  renderCustomLocations();
-  renderImpactOptions();
-  renderProfiles();
-  applyPreferences();
-  renderEntries();
-  routeToHash();
-} catch (error) {
-  showStartupError(error);
+function safeStart(label, task) {
+  try {
+    task();
+  } catch (error) {
+    console.warn(`${label} could not finish.`, error);
+  }
 }
+
+routeToHash();
+safeStart("Ranges", updateRanges);
+safeStart("Focus areas", renderCustomLocations);
+safeStart("Impact suggestions", renderImpactOptions);
+safeStart("Profiles", renderProfiles);
+safeStart("Preferences", applyPreferences);
+safeStart("Entries", renderEntries);
+routeToHash();
