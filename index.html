@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kindling Journal</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <aside class="rail" aria-label="Journal sections">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">
+            <img id="avatar-image" alt="">
+          </div>
+          <div>
+            <p>Kindling</p>
+            <span>pain journal</span>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Primary">
+          <a href="#today" class="active">Today</a>
+          <a href="#patterns">Patterns</a>
+          <a href="#connections">Connections</a>
+          <a href="#customize">Customize</a>
+          <a href="#entries">Entries</a>
+        </nav>
+
+        <section class="mini-card">
+          <p class="mini-label">Your journal is local.</p>
+          <strong id="entry-count">0 entries</strong>
+          <span id="entry-summary-label">Start with one tiny note.</span>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Private local prototype</p>
+            <h1>Journal what your body is carrying today.</h1>
+          </div>
+          <button class="ghost-button" id="clear-sample" type="button">Clear entries</button>
+        </header>
+
+        <section class="page-view today-page" id="today" data-page="today">
+        <section class="hero-panel" aria-labelledby="today-title">
+          <div class="hero-copy">
+            <p class="eyebrow">Daily check-in</p>
+            <h2 id="today-title">A short entry is enough.</h2>
+            <p id="hero-description">
+              Track pain, energy, context, and tiny supports without turning your
+              day into a medical report.
+            </p>
+          </div>
+          <div class="mascot-scene" id="mascot-scene" aria-hidden="true">
+            <div class="moon"></div>
+            <div class="cup">
+              <div class="steam steam-one"></div>
+              <div class="steam steam-two"></div>
+              <div class="cup-body"></div>
+              <div class="cup-handle"></div>
+            </div>
+            <div class="sparkle sparkle-one"></div>
+            <div class="sparkle sparkle-two"></div>
+          </div>
+        </section>
+
+        <section class="missed-panel" id="missed-panel" hidden>
+          <div>
+            <p class="eyebrow">Welcome back</p>
+            <h2 id="missed-title">We missed you gently.</h2>
+            <p id="missed-copy">
+              No catching up required. If you want, leave a tiny note for the days
+              that passed.
+            </p>
+          </div>
+          <form class="missed-form" id="missed-form">
+            <fieldset class="chip-field">
+              <legend>What got in the way?</legend>
+              <div class="chips missed-chips" id="missed-chips">
+                <label><input type="radio" name="missed-reason" value="Pain flare">Pain flare</label>
+                <label><input type="radio" name="missed-reason" value="Needed rest">Needed rest</label>
+                <label><input type="radio" name="missed-reason" value="Too much life">Too much life</label>
+                <label><input type="radio" name="missed-reason" value="Forgot">Forgot</label>
+                <label><input type="radio" name="missed-reason" value="No explanation">No explanation</label>
+              </div>
+            </fieldset>
+            <label class="field">
+              <span>Tiny note</span>
+              <input id="missed-note" type="text" placeholder="I came back, and that counts.">
+            </label>
+            <div class="missed-actions">
+              <button class="primary-button" type="submit">Save check-in</button>
+              <button class="ghost-button" id="dismiss-missed" type="button">Not today</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="journal-grid">
+          <form class="entry-card" id="entry-form">
+            <div class="section-heading">
+              <p class="eyebrow">New entry</p>
+              <h2>Body note</h2>
+            </div>
+
+            <label class="field">
+              <span>Date</span>
+              <input type="date" id="entry-date" required>
+            </label>
+
+            <div class="range-row">
+              <label class="range-field">
+                <span>Pain intensity</span>
+                <output id="pain-output">5</output>
+                <input type="range" id="pain" min="0" max="10" value="5">
+              </label>
+              <label class="range-field">
+                <span>Energy</span>
+                <output id="capacity-output">5</output>
+                <input type="range" id="capacity" min="0" max="10" value="5">
+              </label>
+            </div>
+
+            <fieldset class="chip-field">
+              <div class="field-label-row">
+                <legend>Where is it showing up?</legend>
+                <button class="mini-button" id="edit-locations" type="button">Edit</button>
+              </div>
+              <div class="chips" id="location-chips">
+                <label><input type="checkbox" value="Head">Head</label>
+                <label><input type="checkbox" value="Neck">Neck</label>
+                <label><input type="checkbox" value="Shoulders">Shoulders</label>
+                <label><input type="checkbox" value="Back">Back</label>
+                <label><input type="checkbox" value="Hips">Hips</label>
+                <label><input type="checkbox" value="Hands">Hands</label>
+                <label><input type="checkbox" value="Legs">Legs</label>
+                <label><input type="checkbox" value="Whole body">Whole body</label>
+              </div>
+            </fieldset>
+
+            <div class="add-chip-row focus-area-editor" id="focus-area-editor" hidden>
+              <label class="field">
+                <span>Add focus area</span>
+                <input id="custom-location" type="text" placeholder="Jaw, ribs, left knee">
+              </label>
+              <button class="ghost-button" id="add-location" type="button">Add</button>
+            </div>
+            <div class="pain-detail-list" id="pain-detail-list"></div>
+
+            <label class="field">
+              <span>What may have shaped it?</span>
+              <input id="context" type="text" placeholder="Sleep, weather, stress, food, movement">
+            </label>
+
+            <div class="field impact-field">
+              <div class="impact-label-row">
+                <span>Positive impacts</span>
+                <button class="mini-button" id="add-positive-impact" type="button">Add</button>
+              </div>
+              <input id="helped" type="text" placeholder="Heat, rest, meds, stretching, a friend">
+            </div>
+            <div class="impact-options">
+              <div class="chips" id="positive-impact-chips"></div>
+            </div>
+
+            <div class="field impact-field">
+              <div class="impact-label-row">
+                <span>Negative impacts</span>
+                <button class="mini-button" id="add-negative-impact" type="button">Add</button>
+              </div>
+              <input id="worsened" type="text" placeholder="Poor sleep, weather shift, long drive, stress">
+            </div>
+            <div class="impact-options">
+              <div class="chips" id="negative-impact-chips"></div>
+            </div>
+
+            <label class="field">
+              <span>Journal note</span>
+              <textarea id="note" rows="6" placeholder="Use fragments if sentences feel like too much."></textarea>
+            </label>
+
+            <div class="prompt-strip" id="prompt-strip">
+              <span>Prompt</span>
+              <button type="button" id="new-prompt">New</button>
+              <p id="prompt-text">What would make the next hour kinder?</p>
+            </div>
+
+            <button class="primary-button" type="submit">Save Entry</button>
+          </form>
+
+          <aside class="side-stack">
+            <section class="connections-panel" id="connections">
+              <div class="section-heading">
+                <p class="eyebrow">Connections</p>
+                <h2>What seems linked?</h2>
+              </div>
+              <div class="connection-summary" id="connection-summary">
+                Add a few entries with impacts to start finding clues.
+              </div>
+              <div class="connection-list" id="positive-connections"></div>
+              <div class="connection-list" id="negative-connections"></div>
+            </section>
+
+            <section class="care-panel">
+              <div class="section-heading">
+                <p class="eyebrow">Flare-friendly</p>
+                <h2>Care plan</h2>
+              </div>
+              <ul class="care-list">
+                <li>
+                  <span>1</span>
+                  Pick the smallest useful action.
+                </li>
+                <li>
+                  <span>2</span>
+                  Lower the day, not your worth.
+                </li>
+                <li>
+                  <span>3</span>
+                  Note the support that is easiest to repeat.
+                </li>
+              </ul>
+            </section>
+          </aside>
+        </section>
+        </section>
+
+        <section class="page-view patterns-page insight-panel" id="patterns" data-page="patterns">
+          <div class="section-heading">
+            <p class="eyebrow">Patterns</p>
+            <h2>Trends over time</h2>
+          </div>
+          <div class="pattern-summary-grid">
+            <div class="meter">
+              <div>
+                <span>Average pain</span>
+                <strong id="avg-pain">-</strong>
+              </div>
+              <div class="meter-track">
+                <span id="pain-bar"></span>
+              </div>
+            </div>
+            <div class="meter">
+              <div>
+                <span>Average energy</span>
+                <strong id="avg-capacity">-</strong>
+              </div>
+              <div class="meter-track capacity-track">
+                <span id="capacity-bar"></span>
+              </div>
+            </div>
+          </div>
+          <p class="quiet-note" id="pattern-note">
+            Add an entry to start seeing gentle patterns.
+          </p>
+          <div class="trend-card" aria-label="Pain and energy over time">
+            <div class="trend-heading">
+              <h3>Pain and energy over time</h3>
+              <div class="trend-legend" aria-hidden="true">
+                <span><i class="pain-dot"></i>Pain</span>
+                <span><i class="energy-dot"></i>Energy</span>
+              </div>
+            </div>
+            <div class="trend-chart" id="trend-chart">
+              Add entries to draw your trend.
+            </div>
+          </div>
+        </section>
+
+        <section class="page-view customize-panel" id="customize" data-page="customize">
+          <div class="section-heading">
+            <p class="eyebrow">Customize</p>
+            <h2>Make it yours</h2>
+          </div>
+          <div class="settings-grid">
+            <label class="field">
+              <span>Log in as</span>
+              <select id="profile-select"></select>
+            </label>
+            <label class="field">
+              <span>Profile name</span>
+              <input id="profile-name" type="text" placeholder="Your name">
+            </label>
+            <button class="ghost-button settings-action" id="new-profile" type="button">New profile</button>
+            <label class="field">
+              <span>Avatar animal</span>
+              <select id="avatar-select">
+                <option value="cat">Cat</option>
+                <option value="rabbit">Rabbit</option>
+                <option value="fox">Fox</option>
+                <option value="frog">Frog</option>
+                <option value="bear">Bear</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Comfort drink</span>
+              <select id="drink-select">
+                <option value="tea">Tea</option>
+                <option value="coffee">Coffee</option>
+                <option value="cocoa">Cocoa</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Background gradient</span>
+              <select id="theme-select">
+                <option value="meadow">Meadow</option>
+                <option value="rose">Rose</option>
+                <option value="dusk">Dusk</option>
+                <option value="morning">Morning mist</option>
+                <option value="rain">Rainy window</option>
+                <option value="lavender">Lavender tea</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Display mode</span>
+              <select id="mode-select">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">Match device</option>
+              </select>
+            </label>
+          </div>
+        </section>
+
+        <section class="page-view entries-section" id="entries" data-page="entries" aria-labelledby="entries-title">
+          <div class="section-heading">
+            <p class="eyebrow">Timeline</p>
+            <h2 id="entries-title">Saved entries</h2>
+          </div>
+          <div class="entries-list" id="entries-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
