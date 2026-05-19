@@ -1,1279 +1,1278 @@
-const storageKey = "kindling-journal-entries";
-const profilesKey = "kindling-profiles";
-const activeProfileKey = "kindling-active-profile";
-const missedDismissedKey = "kindling-missed-dismissed-date";
-const customLocationsKey = "kindling-custom-locations";
-const hiddenLocationsKey = "kindling-hidden-locations";
-const customPositiveImpactsKey = "kindling-positive-impacts";
-const customNegativeImpactsKey = "kindling-negative-impacts";
-const impactSettingsKey = "kindling-impact-settings";
-const preferencesKey = "kindling-preferences";
+const STORAGE_KEY = "honey-ledger-profiles";
+const OLD_STORAGE_KEY = "honey-ledger-state";
 
-const defaultLocations = ["Head", "Neck", "Shoulders", "Back", "Hips", "Hands", "Legs", "Whole body"];
-
-const prompts = [
-  "What would make the next hour kinder?",
-  "What is one signal your body gave you today?",
-  "What helped even five percent?",
-  "What can be smaller tomorrow?",
-  "What do you want remembered about today besides pain?",
-  "Where did you spend energy that mattered?",
-  "What support would be easiest to ask for?"
-];
-
-const form = document.querySelector("#entry-form");
-const saveEntryButton = form.querySelector(".primary-button");
-const dateInput = document.querySelector("#entry-date");
-const painInput = document.querySelector("#pain");
-const capacityInput = document.querySelector("#capacity");
-const painOutput = document.querySelector("#pain-output");
-const capacityOutput = document.querySelector("#capacity-output");
-const promptText = document.querySelector("#prompt-text");
-const entriesList = document.querySelector("#entries-list");
-const entryCount = document.querySelector("#entry-count");
-const entrySummaryLabel = document.querySelector("#entry-summary-label");
-const avgPain = document.querySelector("#avg-pain");
-const avgCapacity = document.querySelector("#avg-capacity");
-const painBar = document.querySelector("#pain-bar");
-const capacityBar = document.querySelector("#capacity-bar");
-const patternNote = document.querySelector("#pattern-note");
-const trendChart = document.querySelector("#trend-chart");
-const connectionSummary = document.querySelector("#connection-summary");
-const positiveConnections = document.querySelector("#positive-connections");
-const negativeConnections = document.querySelector("#negative-connections");
-const heroDescription = document.querySelector("#hero-description");
-const brandName = document.querySelector(".brand p");
-const brandSubtitle = document.querySelector(".brand span");
-const brandMark = document.querySelector(".brand-mark");
-const avatarImage = document.querySelector("#avatar-image");
-const profileSelect = document.querySelector("#profile-select");
-const profileNameInput = document.querySelector("#profile-name");
-const newProfileButton = document.querySelector("#new-profile");
-const avatarSelect = document.querySelector("#avatar-select");
-const editLocationsButton = document.querySelector("#edit-locations");
-const focusAreaEditor = document.querySelector("#focus-area-editor");
-const customLocationInput = document.querySelector("#custom-location");
-const painDetailList = document.querySelector("#pain-detail-list");
-const positiveImpactChips = document.querySelector("#positive-impact-chips");
-const negativeImpactChips = document.querySelector("#negative-impact-chips");
-const customPositiveImpactInput = document.querySelector("#custom-positive-impact");
-const customNegativeImpactInput = document.querySelector("#custom-negative-impact");
-const drinkSelect = document.querySelector("#drink-select");
-const themeSelect = document.querySelector("#theme-select");
-const modeSelect = document.querySelector("#mode-select");
-const missedPanel = document.querySelector("#missed-panel");
-const missedTitle = document.querySelector("#missed-title");
-const missedCopy = document.querySelector("#missed-copy");
-const missedForm = document.querySelector("#missed-form");
-const missedNote = document.querySelector("#missed-note");
+const money = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
 
 const today = new Date();
-dateInput.value = today.toISOString().slice(0, 10);
-let editingEntryId = null;
-let focusAreasEditing = false;
+const todayIso = today.toISOString().slice(0, 10);
+const SAVINGS_CATEGORY = "Savings";
+const defaultCategories = ["Pay", "Bills", "Food", "Home", "Fun", "Other"];
+let idCounter = 0;
+let memoryState = null;
 
-function slugifyProfileName(name) {
-  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "kindling";
-}
+const categoryColors = {
+  Pay: "#a8d8b9",
+  Bills: "#f7d58b",
+  Food: "#f5a9b8",
+  Home: "#a9d4f2",
+  Fun: "#cdb4db",
+  Savings: "#b8e0d2",
+  Other: "#c9c4d3",
+};
 
-function readProfiles() {
-  try {
-    const profiles = JSON.parse(localStorage.getItem(profilesKey)) || [];
-    return profiles.length ? profiles : [{ id: "default", name: "Kindling", avatar: "cat" }];
-  } catch {
-    return [{ id: "default", name: "Kindling", avatar: "cat" }];
+const customCategoryPalette = ["#a8d8b9", "#f5a9b8", "#f7d58b", "#a9d4f2", "#cdb4db", "#b8e0d2", "#f0b7a4"];
+
+const els = {
+  currentMonth: document.querySelector("#currentMonth"),
+  themeToggle: document.querySelector("#themeToggle"),
+  calendarToggle: document.querySelector("#calendarToggle"),
+  calendarPanel: document.querySelector("#calendarPanel"),
+  calendarGrid: document.querySelector("#calendarGrid"),
+  calendarMonthLabel: document.querySelector("#calendarMonthLabel"),
+  calendarBillTotal: document.querySelector("#calendarBillTotal"),
+  previousMonth: document.querySelector("#previousMonth"),
+  nextMonth: document.querySelector("#nextMonth"),
+  closeCalendar: document.querySelector("#closeCalendar"),
+  profileSelect: document.querySelector("#profileSelect"),
+  profileList: document.querySelector("#profileList"),
+  newProfileForm: document.querySelector("#newProfileForm"),
+  newProfileName: document.querySelector("#newProfileName"),
+  profileForm: document.querySelector("#profileForm"),
+  profileName: document.querySelector("#profileName"),
+  exportData: document.querySelector("#exportData"),
+  importData: document.querySelector("#importData"),
+  downloadBackupLink: document.querySelector("#downloadBackupLink"),
+  backupText: document.querySelector("#backupText"),
+  storageNotice: document.querySelector("#storageNotice"),
+  categoryForm: document.querySelector("#categoryForm"),
+  categoryName: document.querySelector("#categoryName"),
+  categoryList: document.querySelector("#categoryList"),
+  transactionCategory: document.querySelector("#transactionCategory"),
+  incomeTotal: document.querySelector("#incomeTotal"),
+  expenseTotal: document.querySelector("#expenseTotal"),
+  billTotal: document.querySelector("#billTotal"),
+  balanceTotal: document.querySelector("#balanceTotal"),
+  savingsTotal: document.querySelector("#savingsTotal"),
+  transactionList: document.querySelector("#transactionList"),
+  billList: document.querySelector("#billList"),
+  flowChartTitle: document.querySelector("#flowChartTitle"),
+  trendChartButton: document.querySelector("#trendChartButton"),
+  barChartButton: document.querySelector("#barChartButton"),
+  flowChart: document.querySelector("#flowChart"),
+  categoryChart: document.querySelector("#categoryChart"),
+  categoryBreakdown: document.querySelector("#categoryBreakdown"),
+  transactionForm: document.querySelector("#transactionPanel"),
+  billForm: document.querySelector("#billPanel"),
+  categoryManager: document.querySelector(".category-manager"),
+  editTransactionPanel: document.querySelector("#editTransactionPanel"),
+  editTransactionForm: document.querySelector("#editTransactionForm"),
+  editTransactionType: document.querySelector("#editTransactionType"),
+  editTransactionName: document.querySelector("#editTransactionName"),
+  editTransactionCategory: document.querySelector("#editTransactionCategory"),
+  editTransactionAmount: document.querySelector("#editTransactionAmount"),
+  editTransactionDate: document.querySelector("#editTransactionDate"),
+  cancelTransactionEdit: document.querySelector("#cancelTransactionEdit"),
+  editBillPanel: document.querySelector("#editBillPanel"),
+  editBillForm: document.querySelector("#editBillForm"),
+  editBillName: document.querySelector("#editBillName"),
+  editBillOrganization: document.querySelector("#editBillOrganization"),
+  editBillAmount: document.querySelector("#editBillAmount"),
+  editBillDueDate: document.querySelector("#editBillDueDate"),
+  editBillRepeat: document.querySelector("#editBillRepeat"),
+  cancelBillEdit: document.querySelector("#cancelBillEdit"),
+  clearDemo: document.querySelector("#clearDemo"),
+};
+
+let appState = loadAppState();
+let editingTransactionId = null;
+let editingBillId = null;
+let calendarDate = new Date(today.getFullYear(), today.getMonth(), 1);
+let flowChartMode = "trend";
+
+document.querySelector("#transactionDate").value = todayIso;
+document.querySelector("#billDueDate").value = todayIso;
+els.currentMonth.textContent = today.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+applyTheme();
+
+els.themeToggle.addEventListener("click", () => {
+  appState.theme = appState.theme === "dark" ? "light" : "dark";
+  applyTheme();
+  writeStorage(STORAGE_KEY, JSON.stringify(appState));
+  render();
+});
+
+els.calendarToggle.addEventListener("click", () => {
+  els.calendarPanel.hidden = !els.calendarPanel.hidden;
+  if (!els.calendarPanel.hidden) {
+    renderCalendar(currentProfile());
   }
-}
+});
 
-function writeProfiles(profiles) {
-  localStorage.setItem(profilesKey, JSON.stringify(profiles));
-}
+els.previousMonth.addEventListener("click", () => {
+  calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1);
+  renderCalendar(currentProfile());
+});
 
-function getActiveProfileId() {
-  return localStorage.getItem(activeProfileKey) || readProfiles()[0].id;
-}
+els.nextMonth.addEventListener("click", () => {
+  calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1);
+  renderCalendar(currentProfile());
+});
 
-function setActiveProfileId(profileId) {
-  localStorage.setItem(activeProfileKey, profileId);
-}
+els.closeCalendar.addEventListener("click", () => {
+  els.calendarPanel.hidden = true;
+});
 
-function profileStorageKey(baseKey) {
-  return `${baseKey}:${getActiveProfileId()}`;
-}
+els.trendChartButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  setFlowChartMode("trend");
+});
 
-function readEntries() {
-  try {
-    const scoped = localStorage.getItem(profileStorageKey(storageKey));
-    if (scoped) {
-      return JSON.parse(scoped) || [];
-    }
+els.barChartButton.addEventListener("click", (event) => {
+  event.preventDefault();
+  setFlowChartMode("bars");
+});
 
-    return JSON.parse(localStorage.getItem(storageKey)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function writeEntries(entries) {
-  localStorage.setItem(profileStorageKey(storageKey), JSON.stringify(entries));
-}
-
-function readCustomLocations() {
-  try {
-    return JSON.parse(localStorage.getItem(customLocationsKey)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function writeCustomLocations(locations) {
-  localStorage.setItem(customLocationsKey, JSON.stringify(locations));
-}
-
-function readHiddenLocations() {
-  try {
-    return JSON.parse(localStorage.getItem(hiddenLocationsKey)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function writeHiddenLocations(locations) {
-  localStorage.setItem(hiddenLocationsKey, JSON.stringify(locations));
-}
-
-function readCustomImpacts(key) {
-  try {
-    return JSON.parse(localStorage.getItem(key)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function writeCustomImpacts(key, impacts) {
-  localStorage.setItem(key, JSON.stringify(impacts));
-}
-
-function readImpactSettings() {
-  try {
-    const settings = JSON.parse(localStorage.getItem(impactSettingsKey)) || {};
-    return {
-      helped: {
-        hidden: settings.helped?.hidden || [],
-        renames: settings.helped?.renames || {}
-      },
-      worsened: {
-        hidden: settings.worsened?.hidden || [],
-        renames: settings.worsened?.renames || {}
-      }
-    };
-  } catch {
-    return {
-      helped: { hidden: [], renames: {} },
-      worsened: { hidden: [], renames: {} }
-    };
-  }
-}
-
-function writeImpactSettings(settings) {
-  localStorage.setItem(impactSettingsKey, JSON.stringify(settings));
-}
-
-function readPreferences() {
-  try {
-    return JSON.parse(localStorage.getItem(profileStorageKey(preferencesKey))) || {};
-  } catch {
-    return {};
-  }
-}
-
-function writePreferences(preferences) {
-  localStorage.setItem(profileStorageKey(preferencesKey), JSON.stringify(preferences));
-}
-
-function selectedLocations() {
-  return [...document.querySelectorAll("#location-chips input:checked")].map((input) => input.value);
-}
-
-function selectedLocationDetails() {
-  const details = {};
-  document.querySelectorAll("[data-pain-detail]").forEach((input) => {
-    if (input.value.trim()) {
-      details[input.dataset.painDetail] = input.value.trim();
-    }
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((button) => button.classList.remove("active"));
+    document.querySelectorAll(".entry-form").forEach((form) => form.classList.remove("active"));
+    tab.classList.add("active");
+    document.querySelector(`#${tab.dataset.panel}`).classList.add("active");
+    syncEntryMode();
   });
-  return details;
-}
+});
 
-function resetLocationChips() {
-  document.querySelectorAll("#location-chips input").forEach((input) => {
-    input.checked = false;
+els.profileSelect.addEventListener("change", () => {
+  appState.activeProfileId = els.profileSelect.value;
+  saveAndRender();
+});
+
+els.newProfileForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const fallbackName = `Profile ${appState.profiles.length + 1}`;
+  const name = els.newProfileName.value.trim() || fallbackName;
+
+  const profile = createProfile({ name, withSamples: false });
+  appState.profiles.push(profile);
+  appState.activeProfileId = profile.id;
+  els.newProfileForm.reset();
+  saveAndRender();
+});
+
+els.profileForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const profile = currentProfile();
+  profile.name = els.profileName.value.trim() || "My budget";
+  saveAndRender();
+});
+
+els.exportData.addEventListener("click", () => {
+  exportData();
+});
+els.importData.addEventListener("change", importData);
+
+els.categoryForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const profile = currentProfile();
+  const name = cleanCategoryName(els.categoryName.value);
+  if (!name) return;
+  if (isSavingsCategory(name, profile)) {
+    els.categoryForm.reset();
+    return;
+  }
+
+  if (!profile.categories.some((category) => category.toLowerCase() === name.toLowerCase())) {
+    profile.categories.push(name);
+    profile.categoryColors[name] = colorForCategory(name);
+  }
+
+  els.categoryForm.reset();
+  saveAndRender();
+  els.transactionCategory.value = name;
+});
+
+els.categoryList.addEventListener("click", (event) => {
+  const deleteButton = event.target.closest("[data-category-delete]");
+  if (!deleteButton) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  deleteCategory(deleteButton.dataset.categoryDelete);
+});
+
+els.editTransactionForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const profile = currentProfile();
+  const transaction = profile.transactions.find((item) => item.id === editingTransactionId);
+  if (!transaction) return;
+
+  transaction.type = els.editTransactionType.value;
+  transaction.name = els.editTransactionName.value.trim() || transaction.name;
+  transaction.category = transaction.type === "savings" ? SAVINGS_CATEGORY : els.editTransactionCategory.value;
+  transaction.amount = Number(els.editTransactionAmount.value) || transaction.amount;
+  transaction.date = els.editTransactionDate.value || transaction.date;
+
+  closeTransactionEditor();
+  saveAndRender();
+});
+
+els.cancelTransactionEdit.addEventListener("click", closeTransactionEditor);
+
+els.editTransactionType.addEventListener("change", () => {
+  els.editTransactionCategory.disabled = els.editTransactionType.value === "savings";
+  if (els.editTransactionType.value === "savings") {
+    els.editTransactionCategory.value = "";
+  }
+});
+
+els.editBillForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const profile = currentProfile();
+  const bill = profile.bills.find((item) => item.id === editingBillId);
+  if (!bill) return;
+
+  bill.name = els.editBillName.value.trim() || bill.name;
+  bill.organization = els.editBillOrganization.value.trim() || bill.organization;
+  bill.amount = Number(els.editBillAmount.value) || bill.amount;
+  bill.dueDate = els.editBillDueDate.value || bill.dueDate;
+  bill.repeat = normalizeRepeat(els.editBillRepeat.value);
+
+  closeBillEditor();
+  saveAndRender();
+});
+
+els.cancelBillEdit.addEventListener("click", closeBillEditor);
+
+els.transactionForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const amount = Number(document.querySelector("#transactionAmount").value);
+  if (!amount) return;
+
+  currentProfile().transactions.unshift({
+    id: makeId(),
+    type: document.querySelector("#transactionType").value,
+    name: document.querySelector("#transactionName").value.trim(),
+    category:
+      document.querySelector("#transactionType").value === "savings" ? SAVINGS_CATEGORY : els.transactionCategory.value,
+    amount,
+    date: document.querySelector("#transactionDate").value,
   });
-  renderPainDetailFields();
-}
 
-function renderPainDetailFields() {
-  const selected = selectedLocations();
-  painDetailList.innerHTML = selected.map((location) => `
-    <label class="field pain-detail-field">
-      <span>Describe ${escapeHtml(location.toLowerCase())} pain</span>
-      <input data-pain-detail="${escapeHtml(location)}" type="text" placeholder="Sharp, aching, burning, stiff, radiating">
-    </label>
-  `).join("");
-}
+  els.transactionForm.reset();
+  document.querySelector("#transactionDate").value = todayIso;
+  saveAndRender();
+});
 
-function renderCustomLocations() {
-  const locationChips = document.querySelector("#location-chips");
-  const selected = new Set(selectedLocations().map((location) => location.toLowerCase()));
-  const hidden = new Set(readHiddenLocations().map((location) => location.toLowerCase()));
-  const locations = [...defaultLocations, ...readCustomLocations()]
-    .filter((location, index, list) => list.findIndex((item) => item.toLowerCase() === location.toLowerCase()) === index)
-    .filter((location) => !hidden.has(location.toLowerCase()));
+els.billForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const amount = Number(document.querySelector("#billAmount").value);
+  if (!amount) return;
 
-  locationChips.innerHTML = locations.map((location) => `
-    <label class="managed-chip">
-      <input type="checkbox" value="${escapeHtml(location)}" ${selected.has(location.toLowerCase()) ? "checked" : ""}>
-      <span>${escapeHtml(location)}</span>
-      ${focusAreasEditing ? `
-        <button class="chip-icon-button edit-chip-button" type="button" data-edit-location="${escapeHtml(location)}" aria-label="Rename ${escapeHtml(location)}">Edit</button>
-        <button class="chip-icon-button" type="button" data-remove-location="${escapeHtml(location)}" aria-label="Remove ${escapeHtml(location)}">x</button>
-      ` : ""}
-    </label>
-  `).join("");
-}
+  currentProfile().bills.push({
+    id: makeId(),
+    name: document.querySelector("#billName").value.trim(),
+    organization: document.querySelector("#billOrganization").value.trim(),
+    amount,
+    dueDate: document.querySelector("#billDueDate").value,
+    repeat: document.querySelector("#billRepeat").value,
+  });
 
-function setFocusAreasEditing(isEditing) {
-  focusAreasEditing = isEditing;
-  editLocationsButton.textContent = isEditing ? "Done" : "Edit";
-  focusAreaEditor.hidden = !isEditing;
-  renderCustomLocations();
-  renderPainDetailFields();
-}
+  els.billForm.reset();
+  document.querySelector("#billDueDate").value = todayIso;
+  saveAndRender();
+});
 
-function renderProfiles() {
-  const profiles = readProfiles();
-  const activeId = getActiveProfileId();
-  profileSelect.innerHTML = profiles.map((profile) => `
-    <option value="${profile.id}" ${profile.id === activeId ? "selected" : ""}>${escapeHtml(profile.name)}</option>
-  `).join("");
-}
+els.clearDemo.addEventListener("click", () => {
+  const profile = currentProfile();
+  const sample = createProfile({ name: profile.name, withSamples: true });
+  profile.transactions = sample.transactions;
+  profile.bills = sample.bills;
+  saveAndRender();
+});
 
-function saveCurrentProfile() {
-  const name = profileNameInput.value.trim() || "Kindling";
-  const avatar = avatarSelect.value;
-  const profiles = readProfiles();
-  const activeId = getActiveProfileId();
-  const existingIndex = profiles.findIndex((profile) => profile.id === activeId);
-  const baseId = slugifyProfileName(name);
-  const id = existingIndex >= 0 ? activeId : baseId;
-  const profile = { id, name, avatar };
-
-  if (existingIndex >= 0) {
-    profiles[existingIndex] = profile;
-  } else {
-    profiles.push(profile);
+document.addEventListener("click", (event) => {
+  const categoryEditButton = event.target.closest("[data-category-edit]");
+  if (categoryEditButton) {
+    editCategory(categoryEditButton.dataset.categoryEdit);
+    return;
   }
 
-  writeProfiles(profiles);
-  setActiveProfileId(id);
-  updatePreference("profileName", name);
-  updatePreference("avatar", avatar);
-  renderProfiles();
-  renderEntries();
-}
-
-function syncActiveProfile() {
-  const name = profileNameInput.value.trim() || "Kindling";
-  const avatar = avatarSelect.value;
-  const profiles = readProfiles();
-  const activeId = getActiveProfileId();
-  const existingIndex = profiles.findIndex((profile) => profile.id === activeId);
-
-  if (existingIndex >= 0) {
-    profiles[existingIndex] = {
-      ...profiles[existingIndex],
-      name,
-      avatar
-    };
-    writeProfiles(profiles);
-    renderProfiles();
-  }
-}
-
-function createNewProfile() {
-  const profiles = readProfiles();
-  const baseName = "New profile";
-  let nextNumber = profiles.length + 1;
-  let name = `${baseName} ${nextNumber}`;
-
-  while (profiles.some((profile) => profile.name.toLowerCase() === name.toLowerCase())) {
-    nextNumber += 1;
-    name = `${baseName} ${nextNumber}`;
+  const editButton = event.target.closest("[data-edit]");
+  if (editButton) {
+    editEntry(editButton.dataset.edit, editButton.dataset.id);
+    return;
   }
 
-  const baseId = slugifyProfileName(name);
-  let id = baseId;
-  let suffix = 2;
-  while (profiles.some((profile) => profile.id === id)) {
-    id = `${baseId}-${suffix}`;
-    suffix += 1;
+  const categoryButton = event.target.closest("[data-category-delete]");
+  if (categoryButton) {
+    deleteCategory(categoryButton.dataset.categoryDelete);
+    return;
   }
 
-  profiles.push({
-    id,
+  const profileButton = event.target.closest("[data-profile-id]");
+  if (profileButton) {
+    appState.activeProfileId = profileButton.dataset.profileId;
+    saveAndRender();
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-delete]");
+  if (!deleteButton) return;
+
+  const profile = currentProfile();
+  const { delete: kind, id } = deleteButton.dataset;
+  profile[kind] = profile[kind].filter((item) => item.id !== id);
+  saveAndRender();
+});
+
+document.addEventListener("change", (event) => {
+  const colorInput = event.target.closest("[data-category-color]");
+  if (!colorInput) return;
+
+  const profile = currentProfile();
+  profile.categoryColors[colorInput.dataset.categoryColor] = colorInput.value;
+  saveAndRender();
+});
+
+function createProfile({ name = "My budget", withSamples = true } = {}) {
+  const monthDate = (monthOffset, day) => {
+    const date = new Date(today.getFullYear(), today.getMonth() + monthOffset, day);
+    return date.toISOString().slice(0, 10);
+  };
+
+  return {
+    id: makeId(),
     name,
-    avatar: avatarSelect.value || "cat"
-  });
-  writeProfiles(profiles);
-  setActiveProfileId(id);
-  writePreferences({
-    ...readPreferences(),
-    profileName: name,
-    avatar: avatarSelect.value || "cat",
-    drink: drinkSelect.value || "tea",
-    theme: themeSelect.value || "meadow",
-    mode: modeSelect.value || "light"
-  });
-  renderProfiles();
-  applyPreferences();
-  renderEntries();
+    categories: [...defaultCategories],
+    categoryColors: { ...categoryColors },
+    savingsCategory: SAVINGS_CATEGORY,
+    transactions: withSamples
+      ? [
+          { id: makeId(), type: "income", name: "March paycheck", category: "Pay", amount: 1740, date: monthDate(-2, 5) },
+          { id: makeId(), type: "expense", name: "March groceries", category: "Food", amount: 310.2, date: monthDate(-2, 9) },
+          { id: makeId(), type: "savings", name: "March savings", category: SAVINGS_CATEGORY, amount: 180, date: monthDate(-2, 12) },
+          { id: makeId(), type: "expense", name: "March fun", category: "Fun", amount: 64.5, date: monthDate(-2, 20) },
+          { id: makeId(), type: "income", name: "April paycheck", category: "Pay", amount: 1810, date: monthDate(-1, 5) },
+          { id: makeId(), type: "expense", name: "April groceries", category: "Food", amount: 274.86, date: monthDate(-1, 10) },
+          { id: makeId(), type: "savings", name: "April savings", category: SAVINGS_CATEGORY, amount: 220, date: monthDate(-1, 15) },
+          { id: makeId(), type: "expense", name: "April home supplies", category: "Home", amount: 88.4, date: monthDate(-1, 21) },
+          { id: makeId(), type: "income", name: "Paycheck", category: "Pay", amount: 1850, date: todayIso },
+          { id: makeId(), type: "expense", name: "Groceries", category: "Food", amount: 92.44, date: todayIso },
+          { id: makeId(), type: "savings", name: "Savings transfer", category: SAVINGS_CATEGORY, amount: 250, date: todayIso },
+          { id: makeId(), type: "expense", name: "Movie night", category: "Fun", amount: 36.5, date: todayIso },
+          { id: makeId(), type: "income", name: "June paycheck", category: "Pay", amount: 1900, date: monthDate(1, 5) },
+          { id: makeId(), type: "expense", name: "June groceries", category: "Food", amount: 260.15, date: monthDate(1, 9) },
+          { id: makeId(), type: "savings", name: "June savings", category: SAVINGS_CATEGORY, amount: 300, date: monthDate(1, 14) },
+          { id: makeId(), type: "expense", name: "June weekend", category: "Fun", amount: 72.35, date: monthDate(1, 22) },
+          { id: makeId(), type: "income", name: "July paycheck", category: "Pay", amount: 1950, date: monthDate(2, 5) },
+          { id: makeId(), type: "expense", name: "July groceries", category: "Food", amount: 240.95, date: monthDate(2, 12) },
+          { id: makeId(), type: "savings", name: "July savings", category: SAVINGS_CATEGORY, amount: 340, date: monthDate(2, 18) },
+        ]
+      : [],
+    bills: withSamples
+      ? [
+          { id: makeId(), name: "Rent", organization: "Apartment", amount: 1225, dueDate: monthDate(-2, 1), repeat: "monthly" },
+          { id: makeId(), name: "Phone", organization: "Carrier", amount: 68, dueDate: monthDate(-2, 18), repeat: "monthly" },
+          { id: makeId(), name: "Electric", organization: "Utilities", amount: 104.76, dueDate: todayIso, repeat: "monthly" },
+          { id: makeId(), name: "Car insurance", organization: "Insurance", amount: 126.5, dueDate: monthDate(1, 7), repeat: "monthly" },
+          { id: makeId(), name: "Streaming", organization: "Entertainment", amount: 15.99, dueDate: monthDate(2, 12), repeat: "monthly" },
+        ]
+      : [],
+  };
 }
 
-function switchProfile(profileId) {
-  setActiveProfileId(profileId);
-  const profile = readProfiles().find((item) => item.id === profileId);
-  if (profile) {
-    const preferences = {
-      ...readPreferences(),
-      profileName: profile.name,
-      avatar: profile.avatar
-    };
-    writePreferences(preferences);
-  }
-  applyPreferences();
-  renderProfiles();
-  renderEntries();
-}
-
-function addCustomLocation() {
-  const location = customLocationInput.value.trim();
-  if (!location) {
-    return;
-  }
-
-  const builtInLocations = [...document.querySelectorAll("#location-chips input")].map((input) => input.value.toLowerCase());
-  const customLocations = readCustomLocations();
-  const alreadyExists = [...builtInLocations, ...customLocations.map((item) => item.toLowerCase())]
-    .includes(location.toLowerCase());
-
-  if (!alreadyExists) {
-    customLocations.push(location);
-    writeCustomLocations(customLocations);
-  }
-
-  writeHiddenLocations(readHiddenLocations().filter((item) => item.toLowerCase() !== location.toLowerCase()));
-
-  customLocationInput.value = "";
-  renderCustomLocations();
-
-  const added = [...document.querySelectorAll("#location-chips input")]
-    .find((input) => input.value.toLowerCase() === location.toLowerCase());
-  if (added) {
-    added.checked = true;
-  }
-  renderPainDetailFields();
-}
-
-function removeLocationSection(location) {
-  const hiddenLocations = readHiddenLocations();
-  if (!hiddenLocations.some((item) => item.toLowerCase() === location.toLowerCase())) {
-    hiddenLocations.push(location);
-  }
-  writeHiddenLocations(hiddenLocations);
-  renderCustomLocations();
-  renderPainDetailFields();
-}
-
-function renameLocationSection(location) {
-  const nextName = window.prompt("Rename this focus area", location);
-  if (nextName === null) {
-    return;
-  }
-
-  const trimmed = nextName.trim();
-  if (!trimmed || trimmed.toLowerCase() === location.toLowerCase()) {
-    return;
-  }
-
-  const customLocations = readCustomLocations();
-  const defaultLower = new Set(defaultLocations.map((item) => item.toLowerCase()));
-  const renamedCustomLocations = customLocations
-    .filter((item) => item.toLowerCase() !== trimmed.toLowerCase())
-    .map((item) => item.toLowerCase() === location.toLowerCase() ? trimmed : item);
-
-  if (!renamedCustomLocations.some((item) => item.toLowerCase() === trimmed.toLowerCase())) {
-    renamedCustomLocations.push(trimmed);
-  }
-
-  writeCustomLocations(renamedCustomLocations);
-  if (defaultLower.has(location.toLowerCase())) {
-    removeLocationSection(location);
-  } else {
-    writeHiddenLocations(readHiddenLocations().filter((item) => item.toLowerCase() !== trimmed.toLowerCase()));
-    renderCustomLocations();
-    renderPainDetailFields();
-  }
-}
-
-function ensureLocationsAvailable(locations) {
-  const customLocations = readCustomLocations();
-  const customLower = new Set(customLocations.map((location) => location.toLowerCase()));
-  const defaultLower = new Set(defaultLocations.map((location) => location.toLowerCase()));
-  locations.forEach((location) => {
-    if (!defaultLower.has(location.toLowerCase()) && !customLower.has(location.toLowerCase())) {
-      customLocations.push(location);
-      customLower.add(location.toLowerCase());
+function loadAppState() {
+  const saved = readStorage(STORAGE_KEY);
+  if (saved) {
+    try {
+      return normalizeAppState(JSON.parse(saved));
+    } catch {
+      return makeDefaultAppState();
     }
-  });
-  writeCustomLocations(customLocations);
-  writeHiddenLocations(readHiddenLocations().filter((location) => (
-    !locations.some((selected) => selected.toLowerCase() === location.toLowerCase())
-  )));
-  renderCustomLocations();
+  }
+
+  const oldSaved = readStorage(OLD_STORAGE_KEY);
+  if (oldSaved) {
+    try {
+      const oldState = JSON.parse(oldSaved);
+      const profile = createProfile({ name: "My budget", withSamples: false });
+      profile.transactions = Array.isArray(oldState.transactions) ? oldState.transactions : [];
+      profile.bills = Array.isArray(oldState.bills) ? oldState.bills : [];
+      ensureProfileCategories(profile);
+      return { activeProfileId: profile.id, profiles: [profile] };
+    } catch {
+      return makeDefaultAppState();
+    }
+  }
+
+  return makeDefaultAppState();
 }
 
-function renderImpactOptions() {
-  renderImpactChipSet(
-    positiveImpactChips,
-    [...impactSuggestionsFromEntries("helped"), ...readCustomImpacts(customPositiveImpactsKey)],
-    "helped",
-    "Positive suggestions will appear from past entries."
-  );
-  renderImpactChipSet(
-    negativeImpactChips,
-    [...impactSuggestionsFromEntries("worsened"), ...readCustomImpacts(customNegativeImpactsKey)],
-    "worsened",
-    "Negative suggestions will appear from past entries."
-  );
+function normalizeAppState(value) {
+  if (!value || !Array.isArray(value.profiles) || !value.profiles.length) {
+    return makeDefaultAppState();
+  }
+
+  const profiles = value.profiles.map((profile) => ({
+    id: profile.id || makeId(),
+    name: profile.name || "My budget",
+    categories: Array.isArray(profile.categories) ? profile.categories : [],
+    categoryColors: profile.categoryColors && typeof profile.categoryColors === "object" ? profile.categoryColors : {},
+    savingsCategory: profile.savingsCategory || SAVINGS_CATEGORY,
+    transactions: Array.isArray(profile.transactions) ? profile.transactions : [],
+    bills: Array.isArray(profile.bills) ? profile.bills : [],
+  }));
+
+  profiles.forEach(ensureProfileCategories);
+
+  return {
+    activeProfileId: profiles.some((profile) => profile.id === value.activeProfileId)
+      ? value.activeProfileId
+      : profiles[0].id,
+    theme: value.theme === "dark" ? "dark" : "light",
+    profiles,
+  };
 }
 
-function impactSuggestionsFromEntries(key) {
-  const counts = new Map();
-  readEntries()
-    .filter((entry) => entry.type !== "missed")
-    .forEach((entry) => {
-      splitTags(entry[key]).forEach((tag) => {
-        counts.set(tag, (counts.get(tag) || 0) + 1);
+function makeDefaultAppState() {
+  const profile = createProfile({ name: "My budget", withSamples: true });
+  return { activeProfileId: profile.id, theme: "light", profiles: [profile] };
+}
+
+function currentProfile() {
+  if (!appState.profiles.length) {
+    const profile = createProfile({ name: "My budget", withSamples: true });
+    appState.profiles.push(profile);
+    appState.activeProfileId = profile.id;
+  }
+
+  return appState.profiles.find((profile) => profile.id === appState.activeProfileId) || appState.profiles[0];
+}
+
+function applyTheme() {
+  const isDark = appState.theme === "dark";
+  document.body.classList.toggle("dark-mode", isDark);
+  els.themeToggle.textContent = isDark ? "Light mode" : "Dark mode";
+}
+
+async function exportData() {
+  const backup = {
+    app: "Penny Petal",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: appState,
+  };
+  const backupJson = JSON.stringify(backup, null, 2);
+  const fileName = `penny-petal-backup-${todayIso}.json`;
+  const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(backupJson)}`;
+
+  els.downloadBackupLink.href = dataUrl;
+  els.downloadBackupLink.download = fileName;
+  els.downloadBackupLink.hidden = false;
+
+  els.backupText.hidden = true;
+  els.backupText.value = backupJson;
+
+  try {
+    const blob = new Blob([backupJson], { type: "application/json;charset=utf-8" });
+
+    if ("showSaveFilePicker" in window) {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: [
+          {
+            description: "JSON backup",
+            accept: { "application/json": [".json"] },
+          },
+        ],
       });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      return;
+    }
+
+    if (window.navigator && typeof window.navigator.msSaveOrOpenBlob === "function") {
+      window.navigator.msSaveOrOpenBlob(blob, fileName);
+      return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    link.rel = "noopener";
+    link.style.display = "none";
+    document.body.append(link);
+    link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } catch {
+    els.backupText.hidden = false;
+    els.backupText.focus();
+    els.backupText.select();
+    alert("The browser blocked auto-download. Use the Download backup file link that appeared.");
+  }
+}
+
+function importData(event) {
+  const [file] = event.target.files;
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const importedState = parsed.data && parsed.app ? parsed.data : parsed;
+      appState = normalizeAppState(importedState);
+      closeTransactionEditor();
+      closeBillEditor();
+      saveAndRender();
+      alert("Data imported successfully.");
+    } catch {
+      alert("That file could not be imported. Please choose a Penny Petal JSON backup.");
+    } finally {
+      els.importData.value = "";
+    }
+  });
+  reader.readAsText(file);
+}
+
+function setFlowChartMode(mode) {
+  flowChartMode = mode === "bars" ? "bars" : "trend";
+  els.trendChartButton.classList.toggle("active", flowChartMode === "trend");
+  els.barChartButton.classList.toggle("active", flowChartMode === "bars");
+  drawFlowChart(getTotals(), currentProfile());
+}
+
+function saveAndRender() {
+  writeStorage(STORAGE_KEY, JSON.stringify(appState));
+  render();
+}
+
+function getTotals() {
+  const profile = currentProfile();
+  const monthlyTransactions = profile.transactions.filter((transaction) => isInCurrentMonth(transaction.date));
+  const monthlyBills = profile.bills.filter((bill) => isInCurrentMonth(bill.dueDate));
+  const income = monthlyTransactions
+    .filter((transaction) => transaction.type === "income")
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const spendableIncome = monthlyTransactions
+    .filter((transaction) => transaction.type === "income" && !isSavingsCategory(transaction.category, profile))
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const expenses = monthlyTransactions
+    .filter((transaction) => transaction.type === "expense")
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+  const bills = monthlyBills.reduce((sum, bill) => sum + bill.amount, 0);
+  const savings = monthlyTransactions
+    .filter((transaction) => transaction.type === "savings" || isSavingsCategory(transaction.category, profile))
+    .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+  return {
+    income,
+    expenses,
+    bills,
+    savings,
+    balance: spendableIncome - bills,
+  };
+}
+
+function render() {
+  const profile = currentProfile();
+  const totals = getTotals();
+
+  applyTheme();
+  renderProfiles(profile);
+  renderCategories(profile);
+  els.incomeTotal.textContent = money.format(totals.income);
+  els.expenseTotal.textContent = money.format(totals.expenses);
+  els.billTotal.textContent = money.format(totals.bills);
+  els.balanceTotal.textContent = money.format(totals.balance);
+  els.savingsTotal.textContent = money.format(totals.savings);
+
+  renderTransactions(profile);
+  renderBills(profile);
+  renderCalendar(profile);
+  drawFlowChart(totals, profile);
+  drawCategoryChart(profile);
+  syncEntryMode();
+}
+
+function renderProfiles(profile) {
+  els.profileSelect.innerHTML = appState.profiles
+    .map(
+      (item) => `
+        <option value="${item.id}" ${item.id === profile.id ? "selected" : ""}>${escapeHtml(item.name)}</option>
+      `,
+    )
+    .join("");
+
+  els.profileList.innerHTML = appState.profiles
+    .map(
+      (item) => `
+        <button class="profile-button ${item.id === profile.id ? "active" : ""}" type="button" data-profile-id="${item.id}">
+          ${escapeHtml(item.name)}
+        </button>
+      `,
+    )
+    .join("");
+  els.profileName.value = profile.name;
+}
+
+function renderCategories(profile) {
+  ensureProfileCategories(profile);
+  const selectedCategory = els.transactionCategory.value;
+  fillCategorySelect(els.transactionCategory, profile, selectedCategory);
+
+  if (profile.categories.includes(selectedCategory)) {
+    els.transactionCategory.value = selectedCategory;
+  } else {
+    els.transactionCategory.value = profile.categories[0] || "Other";
+  }
+
+  if (!els.editTransactionPanel.hidden) {
+    fillCategorySelect(els.editTransactionCategory, profile, els.editTransactionCategory.value);
+  }
+
+  els.categoryList.innerHTML = editableCategories(profile)
+    .map((category) => {
+      return `
+        <div class="category-chip">
+          <input type="color" value="${escapeHtml(colorForCategory(category, profile))}" data-category-color="${escapeHtml(category)}" aria-label="Choose color for ${escapeHtml(category)}" />
+          <span>${escapeHtml(category)}</span>
+          <button type="button" data-category-edit="${escapeHtml(category)}" aria-label="Edit ${escapeHtml(category)}">Edit</button>
+          <button type="button" data-category-delete="${escapeHtml(category)}" aria-label="Delete ${escapeHtml(category)}">&times;</button>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function renderTransactions(profile) {
+  if (!profile.transactions.length) {
+    els.transactionList.innerHTML = `<div class="empty-state">Add a paycheck or payment to start this profile.</div>`;
+    return;
+  }
+
+  els.transactionList.innerHTML = profile.transactions
+    .map((transaction) => {
+      const sign = transaction.type === "income" ? "+" : "-";
+      return `
+        <article class="transaction-item">
+          <div>
+            <div class="item-title">${escapeHtml(transaction.name)}</div>
+            <div class="item-meta">${escapeHtml(transaction.category)} &middot; ${formatDate(transaction.date)}</div>
+          </div>
+          <div class="amount ${transaction.type}">${sign}${money.format(transaction.amount)}</div>
+          <button class="edit-button" type="button" data-edit="transactions" data-id="${transaction.id}" aria-label="Edit ${escapeHtml(transaction.name)}">Edit</button>
+          <button class="delete-button" type="button" data-delete="transactions" data-id="${transaction.id}" aria-label="Delete ${escapeHtml(transaction.name)}">&times;</button>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function renderBills(profile) {
+  const sortedBills = [...profile.bills].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+  if (!sortedBills.length) {
+    els.billList.innerHTML = `<div class="empty-state">Add bills here to organize this profile.</div>`;
+    return;
+  }
+
+  els.billList.innerHTML = sortedBills
+    .map(
+      (bill) => `
+        <article class="bill-item">
+          <div>
+            <div class="item-title">${escapeHtml(bill.name)}</div>
+            <div class="item-meta">${escapeHtml(bill.organization)} &middot; due ${formatDate(bill.dueDate)} &middot; ${formatRepeat(bill.repeat)}</div>
+          </div>
+          <div class="amount">${money.format(bill.amount)}</div>
+          <button class="edit-button" type="button" data-edit="bills" data-id="${bill.id}" aria-label="Edit ${escapeHtml(bill.name)}">Edit</button>
+          <button class="delete-button" type="button" data-delete="bills" data-id="${bill.id}" aria-label="Delete ${escapeHtml(bill.name)}">&times;</button>
+        </article>
+      `,
+    )
+    .join("");
+}
+
+function renderCalendar(profile) {
+  if (els.calendarPanel.hidden) return;
+
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const leadingDays = firstDay.getDay();
+  const calendarItems = getBillOccurrences(profile, year, month);
+  const cells = [];
+
+  els.calendarMonthLabel.textContent = calendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  els.calendarBillTotal.textContent = money.format(calendarItems.reduce((sum, bill) => sum + bill.amount, 0));
+
+  for (let index = 0; index < leadingDays; index += 1) {
+    cells.push(`<div class="calendar-day empty"></div>`);
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const dayBills = calendarItems.filter((item) => item.day === day);
+    cells.push(`
+      <article class="calendar-day">
+        <span class="calendar-date">${day}</span>
+        ${dayBills
+          .map(
+            (bill) => `
+              <span class="calendar-bill">${escapeHtml(bill.name)} ${money.format(bill.amount)}</span>
+            `,
+          )
+          .join("")}
+      </article>
+    `);
+  }
+
+  els.calendarGrid.innerHTML = cells.join("");
+}
+
+function drawFlowChart(totals, profile) {
+  els.flowChartTitle.textContent = flowChartMode === "trend" ? "Monthly progress over time" : "Current month comparison";
+  if (flowChartMode === "bars") {
+    drawFlowBarChart(totals);
+    return;
+  }
+
+  const canvas = els.flowChart;
+  const ctx = setupCanvas(canvas);
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  const chartTop = 30;
+  const chartBottom = height - 54;
+  const chartLeft = width < 560 ? 34 : 48;
+  const chartRight = width - 18;
+  const months = getTrendMonths(profile);
+  const max = Math.max(...months.flatMap((month) => [month.income, month.expenses, month.bills, month.savings]), 1);
+  const series = [
+    { key: "income", label: "Income", color: "#a8d8b9" },
+    { key: "expenses", label: "Spending", color: "#f5a9b8" },
+    { key: "bills", label: "Bills", color: "#f7d58b" },
+    { key: "savings", label: "Savings", color: "#b8e0d2" },
+  ];
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = cssColor("--panel");
+  ctx.fillRect(0, 0, width, height);
+  drawGrid(ctx, width, height, chartTop, chartBottom);
+
+  series.forEach((line) => {
+    ctx.beginPath();
+    months.forEach((month, index) => {
+      const x = chartLeft + (index / Math.max(months.length - 1, 1)) * (chartRight - chartLeft);
+      const y = chartBottom - (month[line.key] / max) * (chartBottom - chartTop);
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
     });
+    ctx.strokeStyle = line.color;
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
 
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([tag]) => tag)
-    .slice(0, 8);
-}
-
-function renderImpactChipSet(container, impacts, targetInputId, emptyText) {
-  const settings = readImpactSettings();
-  const targetSettings = settings[targetInputId] || { hidden: [], renames: {} };
-  const hidden = new Set(targetSettings.hidden.map((impact) => impact.toLowerCase()));
-  const uniqueImpacts = [...new Set(impacts.map((impact) => impact.trim()).filter(Boolean))]
-    .filter((impact) => !hidden.has(impact.toLowerCase()));
-  if (!uniqueImpacts.length) {
-    container.innerHTML = `<p class="quiet-note impact-empty">${emptyText}</p>`;
-    return;
-  }
-
-  container.innerHTML = uniqueImpacts.map((impact) => {
-    const label = targetSettings.renames[impact] || impact;
-    return `
-    <span class="impact-chip managed-impact">
-      <button class="impact-main" type="button" data-impact="${escapeHtml(label)}" data-impact-original="${escapeHtml(impact)}" data-target-input="${targetInputId}">
-        ${escapeHtml(label)}
-      </button>
-      <button class="chip-icon-button" type="button" data-impact-action="edit" data-impact-original="${escapeHtml(impact)}" data-target-input="${targetInputId}" aria-label="Edit ${escapeHtml(label)}">Edit</button>
-      <button class="chip-icon-button" type="button" data-impact-action="remove" data-impact-original="${escapeHtml(impact)}" data-target-input="${targetInputId}" aria-label="Remove ${escapeHtml(label)}">x</button>
-    </span>
-  `;
-  }).join("");
-}
-
-function removeImpactSuggestion(targetInputId, originalImpact) {
-  const settings = readImpactSettings();
-  const targetSettings = settings[targetInputId] || { hidden: [], renames: {} };
-  if (!targetSettings.hidden.some((impact) => impact.toLowerCase() === originalImpact.toLowerCase())) {
-    targetSettings.hidden.push(originalImpact);
-  }
-  delete targetSettings.renames[originalImpact];
-  settings[targetInputId] = targetSettings;
-  writeImpactSettings(settings);
-  renderImpactOptions();
-}
-
-function editImpactSuggestion(targetInputId, originalImpact) {
-  const settings = readImpactSettings();
-  const targetSettings = settings[targetInputId] || { hidden: [], renames: {} };
-  const currentLabel = targetSettings.renames[originalImpact] || originalImpact;
-  const nextLabel = window.prompt("Edit this suggestion", currentLabel);
-  if (nextLabel === null) {
-    return;
-  }
-
-  const trimmed = nextLabel.trim();
-  if (!trimmed) {
-    removeImpactSuggestion(targetInputId, originalImpact);
-    return;
-  }
-
-  targetSettings.renames[originalImpact] = trimmed;
-  settings[targetInputId] = targetSettings;
-  writeImpactSettings(settings);
-  renderImpactOptions();
-}
-
-function addCustomImpact(input, storageKey, targetInputId) {
-  const impact = input.value.trim();
-  if (!impact) {
-    return;
-  }
-
-  const impacts = readCustomImpacts(storageKey);
-  if (!impacts.some((item) => item.toLowerCase() === impact.toLowerCase())) {
-    impacts.push(impact);
-    writeCustomImpacts(storageKey, impacts);
-  }
-
-  const settings = readImpactSettings();
-  const targetSettings = settings[targetInputId] || { hidden: [], renames: {} };
-  targetSettings.hidden = targetSettings.hidden.filter((item) => item.toLowerCase() !== impact.toLowerCase());
-  settings[targetInputId] = targetSettings;
-  writeImpactSettings(settings);
-
-  input.value = "";
-  renderImpactOptions();
-  appendImpactToInput(document.querySelector(`#${targetInputId}`), impact);
-}
-
-function addImpactsFromEntryInput(targetInputId, storageKey) {
-  const input = document.querySelector(`#${targetInputId}`);
-  const impacts = splitTags(input.value);
-  if (!impacts.length) {
-    input.focus();
-    return;
-  }
-
-  const customImpacts = readCustomImpacts(storageKey);
-  const customLower = new Set(customImpacts.map((impact) => impact.toLowerCase()));
-  impacts.forEach((impact) => {
-    if (!customLower.has(impact.toLowerCase())) {
-      customImpacts.push(impact);
-      customLower.add(impact.toLowerCase());
-    }
-  });
-  writeCustomImpacts(storageKey, customImpacts);
-
-  const settings = readImpactSettings();
-  const targetSettings = settings[targetInputId] || { hidden: [], renames: {} };
-  targetSettings.hidden = targetSettings.hidden.filter((item) => !impacts.includes(item.toLowerCase()));
-  settings[targetInputId] = targetSettings;
-  writeImpactSettings(settings);
-  renderImpactOptions();
-}
-
-function appendImpactToInput(input, impact) {
-  const current = splitTags(input.value);
-  if (!current.includes(impact.toLowerCase())) {
-    current.push(impact);
-  }
-  input.value = current.join(", ");
-}
-
-function loadEntryForEditing(entryId) {
-  const entry = readEntries().find((item) => item.id === entryId);
-  if (!entry || entry.type === "missed") {
-    return;
-  }
-
-  editingEntryId = entryId;
-  ensureLocationsAvailable(entry.locations || []);
-  dateInput.value = entry.date;
-  painInput.value = entry.pain;
-  capacityInput.value = entry.capacity;
-  document.querySelector("#context").value = entry.context || "";
-  document.querySelector("#helped").value = entry.helped || "";
-  document.querySelector("#worsened").value = entry.worsened || "";
-  document.querySelector("#note").value = entry.note || "";
-
-  document.querySelectorAll("#location-chips input").forEach((input) => {
-    input.checked = (entry.locations || []).some((location) => location.toLowerCase() === input.value.toLowerCase());
-  });
-  renderPainDetailFields();
-  Object.entries(entry.locationDetails || {}).forEach(([location, detail]) => {
-    const input = document.querySelector(`[data-pain-detail="${CSS.escape(location)}"]`);
-    if (input) {
-      input.value = detail;
-    }
+    months.forEach((month, index) => {
+      const x = chartLeft + (index / Math.max(months.length - 1, 1)) * (chartRight - chartLeft);
+      const y = chartBottom - (month[line.key] / max) * (chartBottom - chartTop);
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = line.color;
+      ctx.fill();
+    });
   });
 
-  updateRanges();
-  saveEntryButton.textContent = "Update Entry";
-  window.location.hash = "today";
-  requestAnimationFrame(() => form.scrollIntoView({ behavior: "smooth", block: "start" }));
+  ctx.fillStyle = cssColor("--muted");
+  ctx.font = "800 12px Inter, sans-serif";
+  ctx.textAlign = "center";
+  months.forEach((month, index) => {
+    const x = chartLeft + (index / Math.max(months.length - 1, 1)) * (chartRight - chartLeft);
+    ctx.fillText(month.label, x, chartBottom + 24);
+  });
+
+  const legendY = height - 18;
+  let legendX = chartLeft;
+  series.forEach((line) => {
+    roundedRect(ctx, legendX, legendY - 10, 14, 14, 4, line.color);
+    ctx.fillStyle = cssColor("--ink");
+    ctx.font = "800 12px Inter, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(line.label, legendX + 20, legendY + 1);
+    legendX += ctx.measureText(line.label).width + 54;
+  });
 }
 
-function resetEditingState() {
-  editingEntryId = null;
-  saveEntryButton.textContent = "Save Entry";
+function drawFlowBarChart(totals) {
+  const canvas = els.flowChart;
+  const ctx = setupCanvas(canvas);
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  const chartTop = 42;
+  const chartBottom = height - 42;
+  const max = Math.max(totals.income, totals.expenses, totals.bills, totals.savings, 1);
+  const bars = [
+    { label: "Income", value: totals.income, color: "#a8d8b9" },
+    { label: "Spending", value: totals.expenses, color: "#f5a9b8" },
+    { label: "Bills", value: totals.bills, color: "#f7d58b" },
+    { label: "Savings", value: totals.savings, color: "#b8e0d2" },
+  ];
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = cssColor("--panel");
+  ctx.fillRect(0, 0, width, height);
+  drawGrid(ctx, width, height, chartTop, chartBottom);
+
+  const gap = width < 560 ? 18 : 38;
+  const barWidth = Math.max(34, (width - gap * (bars.length + 1)) / bars.length);
+
+  bars.forEach((bar, index) => {
+    const x = gap + index * (barWidth + gap);
+    const barHeight = (bar.value / max) * (chartBottom - chartTop);
+    const y = chartBottom - barHeight;
+    roundedRect(ctx, x, y, barWidth, barHeight || 4, 8, bar.color);
+
+    ctx.fillStyle = cssColor("--ink");
+    ctx.font = "800 13px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(bar.label, x + barWidth / 2, chartBottom + 24);
+    ctx.fillStyle = cssColor("--muted");
+    ctx.font = "800 12px Inter, sans-serif";
+    ctx.fillText(money.format(bar.value), x + barWidth / 2, Math.max(24, y - 12));
+  });
 }
 
-function avatarSvgDataUrl(avatar) {
-  const colors = {
-    cat: ["#efc76e", "#75627d", "#fff7dd"],
-    rabbit: ["#f1d9df", "#75627d", "#fff7fb"],
-    fox: ["#e99a86", "#75627d", "#fff0df"],
-    frog: ["#91aa91", "#55715d", "#f2ffe8"],
-    bear: ["#ad9a78", "#75627d", "#fff1df"]
-  }[avatar] || ["#efc76e", "#75627d", "#fff7dd"];
-  const [main, line, light] = colors;
-  if (avatar === "frog") {
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fffdf8"/><stop offset="1" stop-color="#e8f8df"/></linearGradient><linearGradient id="face" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#b8d88b"/><stop offset="1" stop-color="#79a879"/></linearGradient></defs><rect width="32" height="32" rx="11" fill="url(#bg)"/><circle cx="10.5" cy="10" r="5.1" fill="#91aa91"/><circle cx="21.5" cy="10" r="5.1" fill="#91aa91"/><ellipse cx="16" cy="18" rx="11.3" ry="9.2" fill="url(#face)"/><circle cx="10.5" cy="10" r="2.8" fill="#f7fff2"/><circle cx="21.5" cy="10" r="2.8" fill="#f7fff2"/><circle cx="10.5" cy="10.2" r="1.25" fill="#55715d"/><circle cx="21.5" cy="10.2" r="1.25" fill="#55715d"/><circle cx="11.2" cy="20.1" r="1.15" fill="#e99a86" opacity="0.45"/><circle cx="20.8" cy="20.1" r="1.15" fill="#e99a86" opacity="0.45"/><path d="M11.5 19.2c1.4 2.2 7.6 2.2 9 0" fill="none" stroke="#55715d" stroke-width="1.35" stroke-linecap="round"/><path d="M8.2 16.1c1.5-.8 3-.8 4.3 0M19.5 16.1c1.3-.8 2.8-.8 4.3 0" fill="none" stroke="#55715d" stroke-width="1" stroke-linecap="round" opacity="0.45"/></svg>`;
-    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+function drawCategoryChart(profile) {
+  const canvas = els.categoryChart;
+  const ctx = setupCanvas(canvas);
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  const expenses = [
+    ...profile.transactions.filter((transaction) => transaction.type === "expense" && isInCurrentMonth(transaction.date)),
+    ...profile.bills.filter((bill) => isInCurrentMonth(bill.dueDate)).map((bill) => ({ category: "Bills", amount: bill.amount })),
+  ];
+  const byCategory = expenses.reduce((map, transaction) => {
+    map[transaction.category] = (map[transaction.category] || 0) + transaction.amount;
+    return map;
+  }, {});
+  const entries = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((sum, [, value]) => sum + value, 0);
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = cssColor("--panel");
+  ctx.fillRect(0, 0, width, height);
+
+  if (!total) {
+    els.categoryBreakdown.innerHTML = `<div class="empty-state">No spending yet</div>`;
+    ctx.fillStyle = cssColor("--muted");
+    ctx.font = "800 15px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("No spending yet", width / 2, height / 2);
+    return;
   }
-  const ear = {
-    rabbit: `<ellipse cx="10.8" cy="8.4" rx="3.2" ry="6.1" fill="${main}" transform="rotate(-8 10.8 8.4)"/><ellipse cx="21.2" cy="8.4" rx="3.2" ry="6.1" fill="${main}" transform="rotate(8 21.2 8.4)"/><ellipse cx="10.8" cy="9" rx="1.15" ry="3.8" fill="${light}" opacity="0.9" transform="rotate(-8 10.8 9)"/><ellipse cx="21.2" cy="9" rx="1.15" ry="3.8" fill="${light}" opacity="0.9" transform="rotate(8 21.2 9)"/>`,
-    bear: `<circle cx="9.4" cy="11" r="4" fill="${main}"/><circle cx="22.6" cy="11" r="4" fill="${main}"/><circle cx="9.4" cy="11" r="1.9" fill="${light}" opacity="0.82"/><circle cx="22.6" cy="11" r="1.9" fill="${light}" opacity="0.82"/>`,
-    cat: `<path d="M8.7 13.3 11.2 6.4l4.2 5.3M23.3 13.3l-2.5-6.9-4.2 5.3" fill="${main}" stroke="${line}" stroke-width="0.9" stroke-linejoin="round"/>`,
-    fox: `<path d="M8 13.8 10.7 5.9l5.1 6.2M24 13.8l-2.7-7.9-5.1 6.2" fill="${main}" stroke="${line}" stroke-width="0.9" stroke-linejoin="round"/>`
-  }[avatar];
-  const faceShape = avatar === "fox"
-    ? `<path d="M6 16.4c.5-7.1 19.5-7.1 20 0 .35 5.1-4.65 9.9-10 9.9S5.65 21.5 6 16.4Z" fill="${main}"/>`
-    : `<ellipse cx="16" cy="17.5" rx="10.7" ry="9.1" fill="${main}"/>`;
-  const muzzle = avatar === "fox"
-    ? `<path d="M9.6 20.2c1.6 3.3 11.2 3.3 12.8 0-1.65-1.35-3.9-2.05-6.4-2.05s-4.75.7-6.4 2.05Z" fill="${light}" opacity="0.96"/>`
-    : `<ellipse cx="16" cy="20.4" rx="5.4" ry="3.25" fill="${light}" opacity="0.86"/>`;
-  const whiskers = ["cat", "fox"].includes(avatar)
-    ? `<path d="M7.2 20.1h4.2M20.6 20.1h4.2M7.7 22.2l3.7-.8M20.6 21.4l3.7.8" fill="none" stroke="${line}" stroke-width="0.75" stroke-linecap="round" opacity="0.45"/>`
-    : "";
-  const eyeExtra = avatar === "rabbit" ? `<circle cx="12" cy="15.9" r="0.45" fill="#fff"/><circle cx="19" cy="15.9" r="0.45" fill="#fff"/>` : "";
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><linearGradient id="bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#fffdf8"/><stop offset="1" stop-color="${light}"/></linearGradient><linearGradient id="soft" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#fff" stop-opacity=".24"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><rect width="32" height="32" rx="11" fill="url(#bg)"/><g>${ear}${faceShape}<ellipse cx="16" cy="14.7" rx="7.3" ry="3.2" fill="url(#soft)"/>${muzzle}<circle cx="11.5" cy="20" r="1.05" fill="#e99a86" opacity="0.34"/><circle cx="20.5" cy="20" r="1.05" fill="#e99a86" opacity="0.34"/><circle cx="12.3" cy="16.25" r="1.15" fill="${line}"/><circle cx="19.7" cy="16.25" r="1.15" fill="${line}"/>${eyeExtra}<circle cx="16" cy="18.75" r="0.8" fill="${line}"/><path d="M12.5 20.25c1.35 2 5.65 2 7 0" fill="none" stroke="${line}" stroke-width="1.1" stroke-linecap="round"/>${whiskers}</g></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = Math.min(86, height * 0.36);
+  let start = -Math.PI / 2;
+
+  entries.forEach(([category, value]) => {
+    const slice = (value / total) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.arc(centerX, centerY, radius, start, start + slice);
+    ctx.closePath();
+    ctx.fillStyle = colorForCategory(category, profile);
+    ctx.fill();
+    start += slice;
+  });
+
+  ctx.beginPath();
+  ctx.fillStyle = cssColor("--panel");
+  ctx.arc(centerX, centerY, radius * 0.54, 0, Math.PI * 2);
+  ctx.fill();
+
+  els.categoryBreakdown.innerHTML = entries
+    .map(
+      ([category, value]) => `
+        <div class="category-breakdown-item">
+          <span class="category-swatch" style="background:${escapeHtml(colorForCategory(category, profile))}"></span>
+          <span class="category-breakdown-name">${escapeHtml(category)}</span>
+          <span class="category-breakdown-total">${money.format(value)}</span>
+        </div>
+      `,
+    )
+    .join("");
+}
+
+function setupCanvas(canvas) {
+  const ratio = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * ratio;
+  canvas.height = rect.height * ratio;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  return ctx;
+}
+
+function drawGrid(ctx, width, height, top, bottom) {
+  ctx.strokeStyle = cssColor("--line");
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i += 1) {
+    const y = top + ((bottom - top) / 3) * i;
+    ctx.beginPath();
+    ctx.moveTo(10, y);
+    ctx.lineTo(width - 10, y);
+    ctx.stroke();
+  }
+}
+
+function roundedRect(ctx, x, y, width, height, radius, color) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x + safeRadius, y);
+  ctx.lineTo(x + width - safeRadius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  ctx.lineTo(x + width, y + height - safeRadius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  ctx.lineTo(x + safeRadius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  ctx.lineTo(x, y + safeRadius);
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+  ctx.fill();
+}
+
+function cssColor(variable) {
+  return getComputedStyle(document.body).getPropertyValue(variable).trim();
 }
 
 function formatDate(value) {
   const date = new Date(`${value}T12:00:00`);
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric"
-  }).format(date);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function updateRanges() {
-  painOutput.value = painInput.value;
-  capacityOutput.value = capacityInput.value;
-}
+function getBillOccurrences(profile, year, month) {
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0);
+  const occurrences = [];
 
-function renderEntries() {
-  const entries = readEntries().sort((a, b) => b.createdAt - a.createdAt);
-  entryCount.textContent = `${entries.length} ${entries.length === 1 ? "entry" : "entries"}`;
-  renderImpactOptions();
-  updateEntrySummary(entries);
-  renderMissedPanel(entries);
+  profile.bills.forEach((bill) => {
+    const dueDate = new Date(`${bill.dueDate}T12:00:00`);
+    const repeat = normalizeRepeat(bill.repeat || "once");
 
-  if (!entries.length) {
-    entriesList.innerHTML = '<div class="empty-state">No entries yet. Start with one tiny note.</div>';
-    renderPatterns(entries);
-    return;
-  }
-
-  entriesList.innerHTML = entries.map((entry) => {
-    const locations = entry.locations.length
-      ? `<div class="tag-row">${entry.locations.map((location) => `<span class="tag">${escapeHtml(location)}</span>`).join("")}</div>`
-      : "";
-
-    const locationDetails = entry.locationDetails && Object.keys(entry.locationDetails).length
-      ? `<div class="entry-detail-grid">${Object.entries(entry.locationDetails).map(([location, detail]) => `<span>${escapeHtml(location)}: ${escapeHtml(detail)}</span>`).join("")}</div>`
-      : "";
-
-    const context = entry.context
-      ? `<span>Context: ${escapeHtml(entry.context)}</span>`
-      : "";
-
-    const helped = entry.helped
-      ? `<span>Positive: ${escapeHtml(entry.helped)}</span>`
-      : "";
-
-    const worsened = entry.worsened
-      ? `<span>Negative: ${escapeHtml(entry.worsened)}</span>`
-      : "";
-
-    return `
-      <article class="entry-item ${entry.type === "missed" ? "missed-entry" : ""}">
-        <div class="entry-topline">
-          <strong>${formatDate(entry.date)}</strong>
-          <div class="entry-stats">
-            ${entry.type === "missed"
-              ? `<span>Welcome-back check-in</span>`
-              : `<span>Pain ${entry.pain}/10</span><span>Energy ${entry.capacity}/10</span>`}
-          </div>
-        </div>
-        ${locations}
-        ${locationDetails}
-        <div class="entry-stats">${context}${helped}${worsened}</div>
-        <p class="entry-note">${escapeHtml(entry.note || "A quiet check-in, saved without extra words.")}</p>
-        ${entry.type === "missed" ? "" : `<button class="mini-button edit-entry-button" type="button" data-edit-entry="${entry.id}">Edit entry</button>`}
-      </article>
-    `;
-  }).join("");
-
-  renderPatterns(entries);
-  renderConnections(entries);
-}
-
-function renderPatterns(entries) {
-  const recent = entries.filter((entry) => entry.type !== "missed").slice(0, 7);
-  if (!recent.length) {
-    avgPain.textContent = "-";
-    avgCapacity.textContent = "-";
-    painBar.style.width = "0%";
-    capacityBar.style.width = "0%";
-    patternNote.textContent = "Add an entry to start seeing gentle patterns.";
-    renderTrendChart([]);
-    renderConnections(entries);
-    return;
-  }
-
-  const painAverage = average(recent.map((entry) => Number(entry.pain)));
-  const capacityAverage = average(recent.map((entry) => Number(entry.capacity)));
-  avgPain.textContent = painAverage.toFixed(1);
-  avgCapacity.textContent = capacityAverage.toFixed(1);
-  painBar.style.width = `${painAverage * 10}%`;
-  capacityBar.style.width = `${capacityAverage * 10}%`;
-  patternNote.textContent = makePatternNote(painAverage, capacityAverage);
-  renderTrendChart(entries);
-}
-
-function renderTrendChart(entries) {
-  if (!trendChart) {
-    return;
-  }
-
-  const chartEntries = entries
-    .filter((entry) => entry.type !== "missed" && Number.isFinite(Number(entry.pain)) && Number.isFinite(Number(entry.capacity)))
-    .sort((a, b) => {
-      const dateA = new Date(`${a.date || ""}T12:00:00`).getTime() || a.createdAt || 0;
-      const dateB = new Date(`${b.date || ""}T12:00:00`).getTime() || b.createdAt || 0;
-      return dateA - dateB;
-    })
-    .slice(-14);
-
-  if (chartEntries.length < 2) {
-    trendChart.innerHTML = '<div class="empty-trend">Add two entries to draw your trend.</div>';
-    return;
-  }
-
-  const width = 860;
-  const height = 320;
-  const padding = { top: 28, right: 44, bottom: 54, left: 44 };
-  const innerWidth = width - padding.left - padding.right;
-  const innerHeight = height - padding.top - padding.bottom;
-  const xFor = (index) => padding.left + (chartEntries.length === 1 ? innerWidth / 2 : (index / (chartEntries.length - 1)) * innerWidth);
-  const yFor = (value) => padding.top + innerHeight - (Math.max(0, Math.min(10, Number(value))) / 10) * innerHeight;
-  const painPoints = chartEntries.map((entry, index) => `${xFor(index)},${yFor(entry.pain)}`).join(" ");
-  const energyPoints = chartEntries.map((entry, index) => `${xFor(index)},${yFor(entry.capacity)}`).join(" ");
-  const labelStep = chartEntries.length > 9 ? 2 : 1;
-  const labels = chartEntries.map((entry, index) => {
-    if (index !== 0 && index !== chartEntries.length - 1 && index % labelStep !== 0) {
-      return "";
+    if (repeat === "once" && dueDate >= monthStart && dueDate <= monthEnd) {
+      occurrences.push({ ...bill, day: dueDate.getDate() });
     }
 
-    const date = new Date(`${entry.date || ""}T12:00:00`);
-    const label = Number.isNaN(date.getTime())
-      ? `${index + 1}`
-      : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-    return `<text x="${xFor(index)}" y="${height - 10}" text-anchor="middle">${escapeHtml(label)}</text>`;
-  }).join("");
-  const dots = chartEntries.map((entry, index) => `
-    <circle class="trend-point pain-point" cx="${xFor(index)}" cy="${yFor(entry.pain)}" r="4">
-      <title>${escapeHtml(entry.date || "Entry")}: ${entry.pain}/10 pain</title>
-    </circle>
-    <circle class="trend-point energy-point" cx="${xFor(index)}" cy="${yFor(entry.capacity)}" r="4">
-      <title>${escapeHtml(entry.date || "Entry")}: ${entry.capacity}/10 energy</title>
-    </circle>
-  `).join("");
+    if (repeat === "monthly" && dueDate <= monthEnd) {
+      occurrences.push({ ...bill, day: Math.min(dueDate.getDate(), monthEnd.getDate()) });
+    }
 
-  trendChart.innerHTML = `
-    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Line chart comparing pain and energy over time">
-      <g class="trend-grid">
-        <line x1="${padding.left}" y1="${yFor(10)}" x2="${width - padding.right}" y2="${yFor(10)}"></line>
-        <line x1="${padding.left}" y1="${yFor(7.5)}" x2="${width - padding.right}" y2="${yFor(7.5)}"></line>
-        <line x1="${padding.left}" y1="${yFor(5)}" x2="${width - padding.right}" y2="${yFor(5)}"></line>
-        <line x1="${padding.left}" y1="${yFor(2.5)}" x2="${width - padding.right}" y2="${yFor(2.5)}"></line>
-        <line x1="${padding.left}" y1="${yFor(0)}" x2="${width - padding.right}" y2="${yFor(0)}"></line>
-        <text x="10" y="${yFor(10) + 4}">10</text>
-        <text x="14" y="${yFor(5) + 4}">5</text>
-        <text x="16" y="${yFor(0) + 4}">0</text>
-      </g>
-      <polyline class="trend-line pain-line" points="${painPoints}"></polyline>
-      <polyline class="trend-line energy-line" points="${energyPoints}"></polyline>
-      <g class="trend-dots">${dots}</g>
-      <g class="trend-labels">${labels}</g>
-    </svg>
-  `;
-}
+    if (repeat === "yearly" && dueDate <= monthEnd && dueDate.getMonth() === month) {
+      occurrences.push({ ...bill, day: Math.min(dueDate.getDate(), monthEnd.getDate()) });
+    }
 
-function renderConnections(entries) {
-  const bodyEntries = entries.filter((entry) => entry.type !== "missed" && Number.isFinite(Number(entry.pain)));
-
-  if (bodyEntries.length < 2) {
-    connectionSummary.textContent = "Add at least two body notes to compare what helped and what spent energy.";
-    positiveConnections.innerHTML = "";
-    negativeConnections.innerHTML = "";
-    return;
-  }
-
-  const baselinePain = average(bodyEntries.map((entry) => Number(entry.pain)));
-  const baselineCapacity = average(bodyEntries.map((entry) => Number(entry.capacity)));
-  const positive = collectImpactStats(bodyEntries, "helped", baselinePain, baselineCapacity, "positive");
-  const negative = collectImpactStats(bodyEntries, "worsened", baselinePain, baselineCapacity, "negative");
-
-  if (!positive.length && !negative.length) {
-    connectionSummary.textContent = "Add positive and negative impacts to entries to start drawing connections.";
-    positiveConnections.innerHTML = "";
-    negativeConnections.innerHTML = "";
-    return;
-  }
-
-  connectionSummary.textContent = `Compared with your baseline of ${baselinePain.toFixed(1)} pain and ${baselineCapacity.toFixed(1)} energy. These are clues, not conclusions.`;
-  positiveConnections.innerHTML = renderConnectionGroup(positive, "positive");
-  negativeConnections.innerHTML = renderConnectionGroup(negative, "negative");
-}
-
-function collectImpactStats(entries, key, baselinePain, baselineCapacity, kind) {
-  const stats = new Map();
-
-  entries.forEach((entry) => {
-    splitTags(entry[key]).forEach((tag) => {
-      if (!stats.has(tag)) {
-        stats.set(tag, {
-          tag,
-          count: 0,
-          painTotal: 0,
-          capacityTotal: 0
-        });
+    if (repeat === "weekly" && dueDate <= monthEnd) {
+      const cursor = new Date(Math.max(dueDate.getTime(), monthStart.getTime()));
+      while (cursor.getDay() !== dueDate.getDay()) {
+        cursor.setDate(cursor.getDate() + 1);
       }
-
-      const stat = stats.get(tag);
-      stat.count += 1;
-      stat.painTotal += Number(entry.pain);
-      stat.capacityTotal += Number(entry.capacity);
-    });
+      while (cursor <= monthEnd) {
+        occurrences.push({ ...bill, day: cursor.getDate() });
+        cursor.setDate(cursor.getDate() + 7);
+      }
+    }
   });
 
-  return [...stats.values()]
-    .map((stat) => {
-      const painAverage = stat.painTotal / stat.count;
-      const capacityAverage = stat.capacityTotal / stat.count;
-      const painShift = painAverage - baselinePain;
-      const capacityShift = capacityAverage - baselineCapacity;
-      const score = kind === "positive"
-        ? capacityShift - painShift
-        : painShift - capacityShift;
-
-      return {
-        ...stat,
-        painAverage,
-        capacityAverage,
-        painShift,
-        capacityShift,
-        score
-      };
-    })
-    .sort((a, b) => b.score - a.score || b.count - a.count)
-    .slice(0, 3);
+  return occurrences.sort((a, b) => a.day - b.day || a.name.localeCompare(b.name));
 }
 
-function renderConnectionGroup(items, kind) {
-  if (!items.length) {
-    return `<p class="quiet-note">No ${kind} impacts recorded yet.</p>`;
+function getTrendMonths(profile) {
+  const months = [];
+  const start = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+
+  for (let index = 0; index < 6; index += 1) {
+    const date = new Date(start.getFullYear(), start.getMonth() + index, 1);
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const monthTransactions = profile.transactions.filter((transaction) => isInMonth(transaction.date, year, month));
+    const billTotal = getBillOccurrences(profile, year, month).reduce((sum, bill) => sum + bill.amount, 0);
+
+    months.push({
+      label: date.toLocaleDateString("en-US", { month: "short" }),
+      income: monthTransactions
+        .filter((transaction) => transaction.type === "income")
+        .reduce((sum, transaction) => sum + transaction.amount, 0),
+      expenses: monthTransactions
+        .filter((transaction) => transaction.type === "expense")
+        .reduce((sum, transaction) => sum + transaction.amount, 0),
+      savings: monthTransactions
+        .filter((transaction) => transaction.type === "savings" || isSavingsCategory(transaction.category, profile))
+        .reduce((sum, transaction) => sum + transaction.amount, 0),
+      bills: billTotal,
+    });
   }
 
-  return items.map((item) => {
-    const painDirection = describeShift(item.painShift, "pain");
-    const capacityDirection = describeShift(item.capacityShift, "energy");
-    const label = kind === "positive" ? "helps" : "harder";
-
-    return `
-      <article class="connection-item">
-        <div class="connection-topline">
-          <strong>${escapeHtml(item.tag)}</strong>
-          <span class="connection-kind ${kind === "negative" ? "negative" : ""}">${label}</span>
-        </div>
-        <p class="connection-detail">
-          Appeared ${item.count} ${item.count === 1 ? "time" : "times"}.
-          Average: ${item.painAverage.toFixed(1)} pain, ${item.capacityAverage.toFixed(1)} energy.
-          ${painDirection}; ${capacityDirection}.
-        </p>
-      </article>
-    `;
-  }).join("");
+  return months;
 }
 
-function describeShift(value, label) {
-  if (Math.abs(value) < 0.2) {
-    return `${label} about the same`;
-  }
-
-  const direction = value > 0 ? "higher" : "lower";
-  return `${Math.abs(value).toFixed(1)} ${direction} ${label}`;
+function isInCurrentMonth(value) {
+  return isInMonth(value, today.getFullYear(), today.getMonth());
 }
 
-function makePatternNote(painAverage, capacityAverage) {
-  if (painAverage >= 7 && capacityAverage <= 4) {
-    return "Your recent entries suggest high pain and low energy. This is a good place for fewer demands and more support.";
-  }
-
-  if (capacityAverage >= 6) {
-    return "Your energy has had some room lately. Notice what supports made that possible.";
-  }
-
-  return "Patterns are forming slowly. Keep the notes small enough to be repeatable.";
-}
-
-function renderMissedPanel(entries) {
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const dismissedDate = localStorage.getItem(missedDismissedKey);
-  const datedEntries = entries
-    .filter((entry) => entry.date)
-    .sort((a, b) => new Date(`${b.date}T12:00:00`) - new Date(`${a.date}T12:00:00`));
-
-  if (!datedEntries.length || dismissedDate === todayKey) {
-    missedPanel.hidden = true;
-    return;
-  }
-
-  const lastDate = new Date(`${datedEntries[0].date}T12:00:00`);
-  const todayDate = new Date(`${todayKey}T12:00:00`);
-  const daysAway = Math.floor((todayDate - lastDate) / 86400000);
-
-  if (daysAway <= 1) {
-    missedPanel.hidden = true;
-    return;
-  }
-
-  missedTitle.textContent = daysAway === 2
-    ? "You were away for a day. We are glad you are back."
-    : `You were away for ${daysAway - 1} days. We are glad you are back.`;
-  missedCopy.textContent = "No catching up required. You can mark what got in the way, or simply let this be the day you returned.";
-  missedPanel.hidden = false;
-}
-
-function average(values) {
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
-}
-
-function splitTags(value) {
-  return String(value || "")
-    .split(",")
-    .map((tag) => tag.trim().toLowerCase())
-    .filter(Boolean);
+function isInMonth(value, year, month) {
+  const date = new Date(`${value}T12:00:00`);
+  return date.getMonth() === month && date.getFullYear() === year;
 }
 
 function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function rotatePrompt() {
-  const current = promptText.textContent;
-  const available = prompts.filter((prompt) => prompt !== current);
-  promptText.textContent = available[Math.floor(Math.random() * available.length)];
-}
-
-function updateEntrySummary(entries = readEntries()) {
-  const bodyEntryCount = entries.filter((entry) => entry.type !== "missed").length;
-  if (!entrySummaryLabel) {
-    return;
-  }
-  entrySummaryLabel.textContent = bodyEntryCount
-    ? "Small entries still count."
-    : "Start with one tiny note.";
-}
-
-function applyPreferences() {
-  const saved = readPreferences();
-  const preferences = {
-    profileName: "Kindling",
-    avatar: "cat",
-    drink: "tea",
-    theme: "meadow",
-    mode: "light",
-    ...saved
-  };
-  const resolvedMode = preferences.mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : preferences.mode === "dark"
-      ? "dark"
-      : "light";
-
-  document.body.dataset.drink = preferences.drink;
-  document.body.dataset.theme = preferences.theme;
-  document.body.dataset.mode = resolvedMode;
-  document.body.dataset.modeChoice = preferences.mode;
-  document.body.dataset.avatar = preferences.avatar;
-  brandName.textContent = preferences.profileName || "Kindling";
-  brandSubtitle.textContent = `${preferences.avatar} profile`;
-  avatarImage.src = avatarSvgDataUrl(preferences.avatar);
-  profileNameInput.value = preferences.profileName || "";
-  avatarSelect.value = preferences.avatar;
-  drinkSelect.value = preferences.drink;
-  themeSelect.value = preferences.theme;
-  modeSelect.value = preferences.mode;
-
-  const drinkName = preferences.drink === "cocoa" ? "cocoa" : preferences.drink;
-  heroDescription.textContent = `Track pain, energy, context, and tiny supports with a warm cup of ${drinkName}.`;
-}
-
-function updatePreference(key, value) {
-  const preferences = {
-    ...readPreferences(),
-    profileName: profileNameInput.value.trim() || "Kindling",
-    avatar: avatarSelect.value,
-    drink: drinkSelect.value,
-    theme: themeSelect.value,
-    mode: modeSelect.value,
-    [key]: value
-  };
-  delete preferences.companion;
-  delete preferences.plant;
-  delete preferences.weather;
-  delete preferences.weatherSource;
-  writePreferences(preferences);
-  applyPreferences();
-}
-
-function routeToHash() {
-  const hash = window.location.hash.replace("#", "") || "today";
-  const page = ["patterns", "customize", "entries"].includes(hash) ? hash : "today";
-
-  document.querySelectorAll(".page-view").forEach((section) => {
-    section.classList.toggle("active-page", section.dataset.page === page);
+  return String(value).replace(/[&<>"']/g, (char) => {
+    return {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    }[char];
   });
-  document.querySelectorAll(".nav-list a").forEach((link) => {
-    const target = link.getAttribute("href").replace("#", "");
-    link.classList.toggle("active", target === hash || (page === "today" && target === "today" && !["patterns", "connections"].includes(hash)));
+}
+
+function cleanCategoryName(value) {
+  return value.trim().replace(/\s+/g, " ").slice(0, 32);
+}
+
+function fillCategorySelect(select, profile, selectedCategory) {
+  const categories = editableCategories(profile);
+  select.innerHTML = categories
+    .map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
+    .join("");
+  select.value = categories.includes(selectedCategory) ? selectedCategory : categories[0] || "";
+}
+
+function openTransactionEditor(transaction, profile) {
+  editingTransactionId = transaction.id;
+  fillCategorySelect(els.editTransactionCategory, profile, transaction.category);
+  const transactionType = isSavingsCategory(transaction.category, profile) ? "savings" : transaction.type;
+  els.editTransactionType.value = transactionType;
+  els.editTransactionCategory.disabled = transactionType === "savings";
+  els.editTransactionName.value = transaction.name;
+  els.editTransactionAmount.value = transaction.amount;
+  els.editTransactionDate.value = transaction.date;
+  els.editTransactionPanel.hidden = false;
+  els.editTransactionPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function closeTransactionEditor() {
+  editingTransactionId = null;
+  els.editTransactionForm.reset();
+  els.editTransactionCategory.disabled = false;
+  els.editTransactionPanel.hidden = true;
+}
+
+function openBillEditor(bill) {
+  editingBillId = bill.id;
+  els.editBillName.value = bill.name;
+  els.editBillOrganization.value = bill.organization;
+  els.editBillAmount.value = bill.amount;
+  els.editBillDueDate.value = bill.dueDate;
+  els.editBillRepeat.value = normalizeRepeat(bill.repeat || "once");
+  els.editBillPanel.hidden = false;
+  els.editBillPanel.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function closeBillEditor() {
+  editingBillId = null;
+  els.editBillForm.reset();
+  els.editBillPanel.hidden = true;
+}
+
+function deleteCategory(category) {
+  const profile = currentProfile();
+  const oldLength = profile.categories.length;
+  profile.categories = profile.categories.filter((item) => item !== category);
+  if (profile.categories.length === oldLength) return;
+
+  if (!profile.categories.length) {
+    profile.categories.push("Uncategorized");
+  }
+
+  const replacementCategory = profile.categories[0];
+  delete profile.categoryColors[category];
+  profile.transactions.forEach((transaction) => {
+    if (transaction.category === category) {
+      transaction.category = replacementCategory;
+    }
   });
 
-  if (hash === "connections") {
-    requestAnimationFrame(() => document.querySelector(`#${hash}`)?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  } else {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  if (profile.savingsCategory === category) {
+    profile.savingsCategory = SAVINGS_CATEGORY;
+  }
+
+  ensureProfileCategories(profile);
+  saveAndRender();
+}
+
+function editCategory(oldCategory) {
+  const profile = currentProfile();
+  const nextCategory = cleanCategoryName(prompt("Category name", oldCategory) || "");
+  if (!nextCategory || nextCategory === oldCategory) return;
+
+  const categoryExists = profile.categories.some(
+    (category) => category.toLowerCase() === nextCategory.toLowerCase() && category !== oldCategory,
+  );
+  if (categoryExists) {
+    alert("That category already exists.");
+    return;
+  }
+
+  profile.categories = profile.categories.map((category) => (category === oldCategory ? nextCategory : category));
+  if (profile.savingsCategory === oldCategory) {
+    return;
+  }
+  profile.transactions.forEach((transaction) => {
+    if (transaction.category === oldCategory) {
+      transaction.category = nextCategory;
+    }
+  });
+
+  if (profile.categoryColors[oldCategory]) {
+    profile.categoryColors[nextCategory] = profile.categoryColors[oldCategory];
+    delete profile.categoryColors[oldCategory];
+  }
+
+  ensureProfileCategories(profile);
+  saveAndRender();
+  els.transactionCategory.value = nextCategory;
+}
+
+function editEntry(kind, id) {
+  const profile = currentProfile();
+
+  if (kind === "transactions") {
+    const transaction = profile.transactions.find((item) => item.id === id);
+    if (!transaction) return;
+    openTransactionEditor(transaction, profile);
+    return;
+  }
+
+  if (kind === "bills") {
+    const bill = profile.bills.find((item) => item.id === id);
+    if (!bill) return;
+    openBillEditor(bill);
+    return;
+  }
+
+  ensureProfileCategories(profile);
+  saveAndRender();
+}
+
+function colorForCategory(category, profile = currentProfile()) {
+  if (profile.categoryColors && profile.categoryColors[category]) return profile.categoryColors[category];
+  if (categoryColors[category]) return categoryColors[category];
+  const index = [...category].reduce((sum, char) => sum + char.charCodeAt(0), 0) % customCategoryPalette.length;
+  return customCategoryPalette[index];
+}
+
+function isSavingsCategory(category, profile) {
+  return category === profile.savingsCategory || category.toLowerCase() === SAVINGS_CATEGORY.toLowerCase();
+}
+
+function editableCategories(profile) {
+  return profile.categories.filter((category) => !isSavingsCategory(category, profile));
+}
+
+function makeId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
+    return window.crypto.randomUUID();
+  }
+
+  idCounter += 1;
+  return `id-${Date.now()}-${idCounter}-${Math.random().toString(16).slice(2)}`;
+}
+
+function formatRepeat(value) {
+  const labels = {
+    once: "one time",
+    weekly: "weekly",
+    monthly: "monthly",
+    yearly: "yearly",
+  };
+  return labels[value] || labels.once;
+}
+
+function normalizeRepeat(value) {
+  return ["once", "weekly", "monthly", "yearly"].includes(value) ? value : "once";
+}
+
+function syncEntryMode() {
+  const billMode = document.querySelector("#billPanel").classList.contains("active");
+  document.body.classList.toggle("bill-tab-active", billMode);
+  if (els.categoryManager) {
+    els.categoryManager.hidden = billMode;
   }
 }
 
-painInput.addEventListener("input", updateRanges);
-capacityInput.addEventListener("input", updateRanges);
-document.querySelector("#new-prompt").addEventListener("click", rotatePrompt);
-document.querySelector("#add-location").addEventListener("click", addCustomLocation);
-editLocationsButton.addEventListener("click", () => {
-  setFocusAreasEditing(!focusAreasEditing);
-});
-document.querySelector("#add-positive-impact").addEventListener("click", () => {
-  if (customPositiveImpactInput) {
-    addCustomImpact(customPositiveImpactInput, customPositiveImpactsKey, "helped");
-    return;
+function readStorage(key) {
+  if (memoryState && key === STORAGE_KEY) {
+    return JSON.stringify(memoryState);
   }
-  addImpactsFromEntryInput("helped", customPositiveImpactsKey);
-});
-document.querySelector("#add-negative-impact").addEventListener("click", () => {
-  if (customNegativeImpactInput) {
-    addCustomImpact(customNegativeImpactInput, customNegativeImpactsKey, "worsened");
-    return;
+
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
   }
-  addImpactsFromEntryInput("worsened", customNegativeImpactsKey);
-});
-customLocationInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    addCustomLocation();
-  }
-});
-customPositiveImpactInput?.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    addCustomImpact(customPositiveImpactInput, customPositiveImpactsKey, "helped");
-  }
-});
-customNegativeImpactInput?.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    addCustomImpact(customNegativeImpactInput, customNegativeImpactsKey, "worsened");
-  }
-});
-document.querySelector("#entry-form").addEventListener("click", (event) => {
-  const actionButton = event.target.closest("[data-impact-action]");
-  if (actionButton) {
-    const { impactAction, impactOriginal, targetInput } = actionButton.dataset;
-    if (impactAction === "edit") {
-      editImpactSuggestion(targetInput, impactOriginal);
+}
+
+function writeStorage(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+    memoryState = null;
+    if (els.storageNotice) {
+      els.storageNotice.hidden = true;
     }
-    if (impactAction === "remove") {
-      removeImpactSuggestion(targetInput, impactOriginal);
+  } catch {
+    if (key === STORAGE_KEY) {
+      memoryState = JSON.parse(value);
+      if (els.storageNotice) {
+        els.storageNotice.hidden = false;
+      }
     }
-    return;
   }
+}
 
-  const chip = event.target.closest("[data-impact]");
-  if (!chip) {
-    return;
+function ensureProfileCategories(profile) {
+  if (!profile.categoryColors || typeof profile.categoryColors !== "object") {
+    profile.categoryColors = {};
   }
-
-  appendImpactToInput(document.querySelector(`#${chip.dataset.targetInput}`), chip.dataset.impact);
-});
-document.querySelector("#location-chips").addEventListener("click", (event) => {
-  const editButton = event.target.closest("[data-edit-location]");
-  if (editButton) {
-    event.preventDefault();
-    renameLocationSection(editButton.dataset.editLocation);
-    return;
+  if (!Array.isArray(profile.categories) || !profile.categories.length) {
+    profile.categories = [...defaultCategories];
   }
-
-  const button = event.target.closest("[data-remove-location]");
-  if (!button) {
-    return;
+  if (!profile.savingsCategory) {
+    profile.savingsCategory = SAVINGS_CATEGORY;
   }
-
-  event.preventDefault();
-  removeLocationSection(button.dataset.removeLocation);
-});
-document.querySelector("#location-chips").addEventListener("change", renderPainDetailFields);
-entriesList.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-edit-entry]");
-  if (!button) {
-    return;
-  }
-
-  loadEntryForEditing(button.dataset.editEntry);
-});
-profileNameInput.addEventListener("input", () => {
-  updatePreference("profileName", profileNameInput.value.trim() || "Kindling");
-  syncActiveProfile();
-});
-avatarSelect.addEventListener("change", () => {
-  updatePreference("avatar", avatarSelect.value);
-  syncActiveProfile();
-});
-profileSelect.addEventListener("change", () => switchProfile(profileSelect.value));
-newProfileButton.addEventListener("click", createNewProfile);
-drinkSelect.addEventListener("change", () => updatePreference("drink", drinkSelect.value));
-themeSelect.addEventListener("change", () => updatePreference("theme", themeSelect.value));
-modeSelect.addEventListener("change", () => updatePreference("mode", modeSelect.value));
-const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
-colorSchemeQuery.addEventListener?.("change", applyPreferences);
-window.addEventListener("hashchange", routeToHash);
-
-document.querySelector("#clear-sample").addEventListener("click", () => {
-  if (!readEntries().length) {
-    return;
-  }
-
-  const confirmed = window.confirm("Clear all local entries from this browser?");
-  if (confirmed) {
-    writeEntries([]);
-    localStorage.removeItem(missedDismissedKey);
-    renderEntries();
-  }
-});
-
-document.querySelector("#dismiss-missed").addEventListener("click", () => {
-  localStorage.setItem(missedDismissedKey, new Date().toISOString().slice(0, 10));
-  missedPanel.hidden = true;
-});
-
-missedForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-
-  const reason = document.querySelector("input[name='missed-reason']:checked");
-  const entries = readEntries();
-  entries.push({
-    id: crypto.randomUUID(),
-    type: "missed",
-    createdAt: Date.now(),
-    date: new Date().toISOString().slice(0, 10),
-    pain: null,
-    capacity: null,
-    locations: [],
-    context: reason ? reason.value : "No explanation",
-    helped: "",
-    worsened: "",
-    note: missedNote.value.trim() || "I came back, and that counts."
+  const allCategories = profile.categories.map(cleanCategoryName).filter((category) => !isSavingsCategory(category, profile));
+  profile.categories = [...new Set(allCategories)].filter(Boolean);
+  profile.categories.forEach((category) => {
+    if (!profile.categoryColors[category]) {
+      profile.categoryColors[category] = categoryColors[category] || colorForCategory(category, profile);
+    }
   });
+  profile.bills.forEach((bill) => {
+    bill.repeat = normalizeRepeat(bill.repeat || "once");
+  });
+}
 
-  writeEntries(entries);
-  localStorage.setItem(missedDismissedKey, new Date().toISOString().slice(0, 10));
-  missedForm.reset();
-  renderEntries();
-});
-
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-
-  const entries = readEntries();
-  const entryData = {
-    date: dateInput.value,
-    pain: Number(painInput.value),
-    capacity: Number(capacityInput.value),
-    locations: selectedLocations(),
-    locationDetails: selectedLocationDetails(),
-    context: document.querySelector("#context").value.trim(),
-    helped: document.querySelector("#helped").value.trim(),
-    worsened: document.querySelector("#worsened").value.trim(),
-    note: document.querySelector("#note").value.trim()
-  };
-
-  if (editingEntryId) {
-    const existingIndex = entries.findIndex((entry) => entry.id === editingEntryId);
-    if (existingIndex >= 0) {
-      entries[existingIndex] = {
-        ...entries[existingIndex],
-        ...entryData,
-        updatedAt: Date.now()
-      };
-    } else {
-      entries.push({
-        id: crypto.randomUUID(),
-        createdAt: Date.now(),
-        ...entryData
-      });
-    }
-  } else {
-    entries.push({
-      id: crypto.randomUUID(),
-      createdAt: Date.now(),
-      ...entryData
-    });
-  }
-
-  writeEntries(entries);
-  form.reset();
-  dateInput.value = today.toISOString().slice(0, 10);
-  painInput.value = 5;
-  capacityInput.value = 5;
-  resetEditingState();
-  resetLocationChips();
-  updateRanges();
-  rotatePrompt();
-  renderEntries();
-});
-
-updateRanges();
-renderCustomLocations();
-renderImpactOptions();
-renderProfiles();
-applyPreferences();
-renderEntries();
-routeToHash();
+window.addEventListener("resize", render);
+saveAndRender();
