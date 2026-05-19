@@ -273,6 +273,21 @@
             <p class="eyebrow">Customize</p>
             <h2>Make it yours</h2>
           </div>
+          <section class="backup-panel" aria-labelledby="backup-title">
+            <div>
+              <p class="eyebrow">Journal data</p>
+              <h3 id="backup-title">Save or restore your journal</h3>
+              <p class="quiet-note">
+                Export a private backup before app updates, then import it later on this device or another browser.
+              </p>
+            </div>
+            <div class="backup-actions">
+              <button class="primary-button compact-primary" id="export-backup" type="button">Export journal data</button>
+              <label class="ghost-button import-backup-button" for="import-backup">Import journal data</label>
+              <input id="import-backup" type="file" accept="application/json,.json">
+            </div>
+            <p class="backup-status" id="backup-status" role="status" aria-live="polite"></p>
+          </section>
           <div class="settings-grid">
             <label class="field">
               <span>Log in as</span>
@@ -321,21 +336,6 @@
               </select>
             </label>
           </div>
-          <section class="backup-panel" aria-labelledby="backup-title">
-            <div>
-              <p class="eyebrow">Backups</p>
-              <h3 id="backup-title">Keep a copy of your journal</h3>
-              <p class="quiet-note">
-                Export a private backup before app updates, then import it later on this device or another browser.
-              </p>
-            </div>
-            <div class="backup-actions">
-              <button class="ghost-button" id="export-backup" type="button">Export backup</button>
-              <label class="ghost-button import-backup-button" for="import-backup">Import backup</label>
-              <input id="import-backup" type="file" accept="application/json,.json">
-            </div>
-            <p class="backup-status" id="backup-status" role="status" aria-live="polite"></p>
-          </section>
         </section>
 
         <section class="page-view entries-section" id="entries" data-page="entries" aria-labelledby="entries-title">

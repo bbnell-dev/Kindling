@@ -718,14 +718,16 @@ body[data-plant-stage="blooming"] .plant::after {
   display: grid;
   gap: 1rem;
   max-width: 48rem;
-  margin-top: 1.25rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--line);
+  margin: 0 0 1.35rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--card) 86%, var(--accent-soft));
 }
 
 .backup-panel h3 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
 }
 
 .backup-actions {
@@ -738,6 +740,12 @@ body[data-plant-stage="blooming"] .plant::after {
   display: inline-grid;
   place-items: center;
   text-align: center;
+}
+
+.compact-primary {
+  width: auto;
+  min-height: 3rem;
+  padding-inline: 1.25rem;
 }
 
 #import-backup {
